@@ -8,6 +8,17 @@ export type Subject = {
   created_at: string
 }
 
+export type Task = {
+  id: string
+  user_id: string
+  subject_id: string | null
+  title: string
+  description: string | null
+  due_date: string | null
+  is_completed: boolean
+  created_at: string
+}
+
 export const SUBJECT_COLORS = [
   { name: 'slate', class: 'bg-slate-500' },
   { name: 'red', class: 'bg-red-500' },

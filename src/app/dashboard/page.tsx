@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { SubjectsSection } from './subjects-section'
+import { TasksSection } from './tasks-section'
 import { LogoutButton } from './logout-button'
 
 export default async function DashboardPage() {
@@ -16,6 +17,11 @@ export default async function DashboardPage() {
     .select('*')
     .order('created_at', { ascending: true })
 
+  const { data: tasks } = await supabase
+    .from('tasks')
+    .select('*')
+    .order('due_date', { ascending: true, nullsFirst: false })
+
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-4xl mx-auto">
@@ -27,7 +33,10 @@ export default async function DashboardPage() {
           <LogoutButton />
         </div>
 
-        <SubjectsSection initialSubjects={subjects || []} />
+        <div className="space-y-8">
+          <SubjectsSection initialSubjects={subjects || []} />
+          <TasksSection initialTasks={tasks || []} subjects={subjects || []} />
+        </div>
       </div>
     </main>
   )
