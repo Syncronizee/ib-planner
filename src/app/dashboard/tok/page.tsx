@@ -38,6 +38,11 @@ export default async function TOKPage() {
     .from('tok_notes')
     .select('*')
 
+  const { data: userPrompts } = await supabase
+    .from('tok_prompts')
+    .select('*')
+    .order('created_at', { ascending: false })
+
   return (
     <div className="min-h-screen bg-background">
       <Header email={user.email || ''} />
@@ -50,10 +55,14 @@ export default async function TOKPage() {
 
         <div className="space-y-8">
           <div className="grid gap-8 md:grid-cols-2">
-            <TOKEssaySection initialEssay={essay} />
+            <TOKEssaySection 
+              initialEssay={essay} 
+              initialUserPrompts={userPrompts || []} 
+            />
             <TOKExhibitionSection 
               initialExhibition={exhibition} 
               initialObjects={exhibitionObjects || []} 
+              initialUserPrompts={userPrompts || []}
             />
           </div>
           <TOKKnowledgeQuestionsSection initialQuestions={knowledgeQuestions || []} />

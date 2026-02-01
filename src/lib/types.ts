@@ -156,3 +156,60 @@ export const TOK_EXHIBITION_STATUSES = [
   { value: 'writing_commentaries', label: 'Writing Commentaries' },
   { value: 'complete', label: 'Complete' },
 ] as const
+
+export type TOKPrompt = {
+  id: string
+  user_id: string | null
+  type: 'essay' | 'exhibition'
+  prompt: string
+  year: string | null
+  is_default: boolean
+  created_at: string
+}
+
+export const DEFAULT_TOK_ESSAY_PROMPTS_2025 = [
+  "Is subjectivity overly celebrated in the arts but unfairly dismissed in history? Discuss with reference to the arts and history.",
+  "How can we reconcile the competing demands of freedom and security in the production of knowledge? Discuss with reference to two areas of knowledge.",
+  "To what extent do you agree that there is no significant difference between hypothesis and speculation? Discuss with reference to the natural sciences and one other area of knowledge.",
+  "Do we need custodians of knowledge? Discuss with reference to two areas of knowledge.",
+  "Are we too quick to assume that the most recent evidence is inevitably the strongest? Discuss with reference to the natural sciences and one other area of knowledge.",
+  "What forms of knowledge might enable us to resolve genuine moral disagreements? Discuss with reference to ethics and one other area of knowledge.",
+] as const
+
+export const DEFAULT_TOK_EXHIBITION_PROMPTS = [
+  "What counts as knowledge?",
+  "Are some types of knowledge more useful than others?",
+  "What features of knowledge have an impact on its reliability?",
+  "On what grounds might we doubt a claim?",
+  "What counts as good evidence for a claim?",
+  "How does the way that we organize or classify knowledge affect what we know?",
+  "What are the implications of having, or not having, knowledge?",
+  "To what extent is certainty attainable?",
+  "Are some types of knowledge less open to interpretation than others?",
+  "What challenges are raised by the dissemination and/or communication of knowledge?",
+  "Can new knowledge change established values or beliefs?",
+  "Is bias inevitable in the production of knowledge?",
+  "How can we know that current knowledge is an improvement upon past knowledge?",
+  "Does some knowledge belong only to particular communities of knowers?",
+  "What is the relationship between knowledge and culture?",
+  "What role do experts play in influencing our consumption or acquisition of knowledge?",
+  "How important are material tools in the production or acquisition of knowledge?",
+  "How might the context in which knowledge is presented influence whether it is accepted or rejected?",
+  "How can we distinguish between knowledge, belief and opinion?",
+  "Does our knowledge depend on our interactions with other knowers?",
+  "What is the relationship between personal experience and knowledge?",
+  "What is the relationship between knowledge and language?",
+  "How does the context in which knowledge is presented influence its reception?",
+  "What role does imagination play in producing knowledge about the world?",
+  "How can we judge when evidence is adequate?",
+  "What makes a good explanation?",
+  "Does all knowledge impose ethical obligations on those who know it?",
+  "To what extent is objectivity possible in the production or acquisition of knowledge?",
+  "Who owns knowledge?",
+  "What role does technology play in shaping what we consider to be knowledge?",
+  "How do our senses shape what we consider to be knowledge?",
+  "How do our values influence what we consider to be knowledge?",
+  "When, if ever, is it justifiable to dismiss counterclaims?",
+  "How can we distinguish between good and bad interpretations?",
+  "Is knowledge always a representation of something else?",
+] as const

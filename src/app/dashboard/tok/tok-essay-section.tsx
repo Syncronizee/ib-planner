@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { TOKEssay, TOK_ESSAY_STATUSES } from '@/lib/types'
+import { TOKEssay, TOKPrompt, TOK_ESSAY_STATUSES } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
+import { PromptSelector } from '@/components/tok/prompt-selector'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,17 +29,20 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
-import { CalendarIcon, Pencil, FileText } from 'lucide-react'
+import { CalendarIcon, Pencil, FileText, List } from 'lucide-react'
 import { format } from 'date-fns'
 import { useRouter } from 'next/navigation'
 
 interface TOKEssaySectionProps {
   initialEssay: TOKEssay | null
+  initialUserPrompts: TOKPrompt[]
 }
 
-export function TOKEssaySection({ initialEssay }: TOKEssaySectionProps) {
+export function TOKEssaySection({ initialEssay, initialUserPrompts }: TOKEssaySectionProps) {
   const [essay, setEssay] = useState<TOKEssay | null>(initialEssay)
+  const [userPrompts, setUserPrompts] = useState<TOKPrompt[]>(initialUserPrompts)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [promptSelectorOpen, setPromptSelectorOpen] = useState(false)
   const [prescribedTitle, setPrescribedTitle] = useState(essay?.prescribed_title || '')
   const [thesis, setThesis] = useState(essay?.thesis || '')
   const [outline, setOutline] = useState(essay?.outline || '')
@@ -99,6 +103,10 @@ export function TOKEssaySection({ initialEssay }: TOKEssaySectionProps) {
     setDialogOpen(true)
   }
 
+  const handlePromptSelect = (prompt: string) => {
+    setPrescribedTitle(prompt)
+  }
+
   const statusLabel = TOK_ESSAY_STATUSES.find(s => s.value === essay?.status)?.label || 'Not Started'
   const statusColor = {
     'not_started': 'bg-slate-500',
@@ -141,7 +149,7 @@ export function TOKEssaySection({ initialEssay }: TOKEssaySectionProps) {
 
           {(essay?.word_count ?? 0) > 0 && (
             <p className="text-sm text-muted-foreground">
-              Word count: {(essay?.word_count ?? 0)}/1600
+              Word count: {essay?.word_count ?? 0}/1600
             </p>
           )}
         </CardContent>
@@ -188,9 +196,20 @@ export function TOKEssaySection({ initialEssay }: TOKEssaySectionProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Prescribed Title</Label>
+              <div className="flex items-center justify-between">
+                <Label>Prescribed Title</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setPromptSelectorOpen(true)}
+                >
+                  <List className="h-4 w-4 mr-1" />
+                  Browse
+                </Button>
+              </div>
               <Textarea
-                placeholder="Enter your chosen prescribed title..."
+                placeholder="Enter or select your prescribed title..."
                 value={prescribedTitle}
                 onChange={(e) => setPrescribedTitle(e.target.value)}
                 rows={3}
@@ -233,6 +252,16 @@ export function TOKEssaySection({ initialEssay }: TOKEssaySectionProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      <PromptSelector
+        open={promptSelectorOpen}
+        onOpenChange={setPromptSelectorOpen}
+        type="essay"
+        currentPrompt={prescribedTitle}
+        userPrompts={userPrompts}
+        onSelect={handlePromptSelect}
+        onPromptsChange={setUserPrompts}
+      />
     </>
   )
 }

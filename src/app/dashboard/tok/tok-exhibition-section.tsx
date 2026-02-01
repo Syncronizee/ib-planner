@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { TOKExhibition, TOKExhibitionObject, TOK_EXHIBITION_STATUSES } from '@/lib/types'
+import { TOKExhibition, TOKExhibitionObject, TOKPrompt, TOK_EXHIBITION_STATUSES } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -32,15 +32,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CalendarIcon, Pencil, Images } from 'lucide-react'
 import { format } from 'date-fns'
 import { useRouter } from 'next/navigation'
+import { PromptSelector } from '@/components/tok/prompt-selector'
+import { List } from 'lucide-react'
 
 interface TOKExhibitionSectionProps {
   initialExhibition: TOKExhibition | null
   initialObjects: TOKExhibitionObject[]
+  initialUserPrompts: TOKPrompt[]
 }
 
-export function TOKExhibitionSection({ initialExhibition, initialObjects }: TOKExhibitionSectionProps) {
+export function TOKExhibitionSection({ initialExhibition, initialObjects, initialUserPrompts }: TOKExhibitionSectionProps) {
   const [exhibition, setExhibition] = useState<TOKExhibition | null>(initialExhibition)
   const [objects, setObjects] = useState<TOKExhibitionObject[]>(initialObjects)
+  const [userPrompts, setUserPrompts] = useState<TOKPrompt[]>(initialUserPrompts)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [prompt, setPrompt] = useState(exhibition?.prompt || '')
   const [status, setStatus] = useState(exhibition?.status || 'not_started')
@@ -57,6 +61,10 @@ export function TOKExhibitionSection({ initialExhibition, initialObjects }: TOKE
     { title: objects.find(o => o.object_number === 3)?.title || '', description: objects.find(o => o.object_number === 3)?.description || '', commentary: objects.find(o => o.object_number === 3)?.commentary || '' },
   ])
   const router = useRouter()
+  const [promptSelectorOpen, setPromptSelectorOpen] = useState(false)
+  const handlePromptSelect = (prompt: string) => {
+  setPrompt(prompt)
+}
 
   const handleSave = async () => {
     const supabase = createClient()
@@ -233,14 +241,25 @@ export function TOKExhibitionSection({ initialExhibition, initialObjects }: TOKE
             </div>
 
             <div className="space-y-2">
-              <Label>IA Prompt</Label>
-              <Textarea
-                placeholder="Enter your chosen IA prompt..."
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={2}
-              />
-            </div>
+  <div className="flex items-center justify-between">
+    <Label>IA Prompt</Label>
+    <Button 
+      type="button" 
+      variant="outline" 
+      size="sm"
+      onClick={() => setPromptSelectorOpen(true)}
+    >
+      <List className="h-4 w-4 mr-1" />
+      Browse
+    </Button>
+  </div>
+  <Textarea
+    placeholder="Enter or select your IA prompt..."
+    value={prompt}
+    onChange={(e) => setPrompt(e.target.value)}
+    rows={2}
+  />
+</div>
 
             <div className="space-y-2">
               <Label>Objects</Label>
@@ -287,6 +306,15 @@ export function TOKExhibitionSection({ initialExhibition, initialObjects }: TOKE
           </div>
         </DialogContent>
       </Dialog>
+      <PromptSelector
+        open={promptSelectorOpen}
+        onOpenChange={setPromptSelectorOpen}
+        type="exhibition"
+        currentPrompt={prompt}
+        userPrompts={userPrompts}
+        onSelect={handlePromptSelect}
+        onPromptsChange={setUserPrompts}
+    />
     </>
   )
 }
