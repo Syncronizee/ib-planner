@@ -5,6 +5,7 @@ import { Subject } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { SubjectCard } from '@/components/subjects/subject-card'
 import { SubjectDialog } from '@/components/subjects/subject-dialog'
+import { SubjectDetailModal } from '@/components/subjects/subject-detail-modal'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -17,6 +18,8 @@ export function SubjectsSection({ initialSubjects }: SubjectsSectionProps) {
   const [subjects, setSubjects] = useState<Subject[]>(initialSubjects)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null)
+  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null)
+  const [detailModalOpen, setDetailModalOpen] = useState(false)
   const router = useRouter()
 
   const handleSave = async (data: { name: string; level: 'HL' | 'SL'; confidence: number; color: string }) => {
@@ -35,15 +38,12 @@ export function SubjectsSection({ initialSubjects }: SubjectsSectionProps) {
       }
     } else {
       const { data: { user } } = await supabase.auth.getUser()
-      console.log('User:', user)
 
       const { data: newSubject, error } = await supabase
         .from('subjects')
         .insert({ ...data, user_id: user?.id })
         .select()
         .single()
-
-      console.log('Insert error:', error)
 
       if (!error && newSubject) {
         setSubjects([...subjects, newSubject])
@@ -77,6 +77,16 @@ export function SubjectsSection({ initialSubjects }: SubjectsSectionProps) {
     setDialogOpen(true)
   }
 
+  const handleSubjectClick = (subject: Subject) => {
+    setSelectedSubject(subject)
+    setDetailModalOpen(true)
+  }
+
+  const handleSubjectUpdate = (updatedSubject: Subject) => {
+    setSubjects(subjects.map(s => s.id === updatedSubject.id ? updatedSubject : s))
+    setSelectedSubject(updatedSubject)
+  }
+
   return (
     <section>
       <div className="flex justify-between items-center mb-4">
@@ -103,6 +113,7 @@ export function SubjectsSection({ initialSubjects }: SubjectsSectionProps) {
               subject={subject}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onClick={handleSubjectClick}
             />
           ))}
         </div>
@@ -114,6 +125,15 @@ export function SubjectsSection({ initialSubjects }: SubjectsSectionProps) {
         subject={editingSubject}
         onSave={handleSave}
       />
+
+      {selectedSubject && (
+        <SubjectDetailModal
+          open={detailModalOpen}
+          onOpenChange={setDetailModalOpen}
+          subject={selectedSubject}
+          onSubjectUpdate={handleSubjectUpdate}
+        />
+      )}
     </section>
   )
 }

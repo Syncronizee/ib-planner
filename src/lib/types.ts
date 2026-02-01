@@ -5,8 +5,138 @@ export type Subject = {
   level: 'HL' | 'SL'
   confidence: number
   color: string
+  current_grade: number | null
+  predicted_grade: number | null
+  target_grade: number | null
+  teacher_name: string | null
+  teacher_email: string | null
+  notes: string | null
   created_at: string
 }
+
+export type GradeHistory = {
+  id: string
+  user_id: string
+  subject_id: string
+  grade: number
+  grade_type: 'current' | 'predicted' | 'test' | 'exam' | 'assignment'
+  label: string | null
+  date: string
+  created_at: string
+}
+
+export type Assessment = {
+  id: string
+  user_id: string
+  subject_id: string
+  title: string
+  type: 'IA' | 'test' | 'exam' | 'quiz' | 'essay' | 'presentation' | 'homework' | 'other'
+  score: number | null
+  max_score: number | null
+  percentage: number | null
+  weight: number | null
+  date: string | null
+  notes: string | null
+  created_at: string
+}
+
+export type StudyResource = {
+  id: string
+  user_id: string
+  subject_id: string
+  title: string
+  url: string | null
+  type: 'video' | 'article' | 'pdf' | 'website' | 'book' | 'other'
+  notes: string | null
+  created_at: string
+}
+
+export type SyllabusTopic = {
+  id: string
+  user_id: string
+  subject_id: string
+  topic_name: string
+  unit_number: number | null
+  is_completed: boolean
+  confidence: number
+  notes: string | null
+  created_at: string
+}
+
+export type WeaknessTag = {
+  id: string
+  user_id: string
+  subject_id: string
+  tag: string
+  description: string | null
+  is_resolved: boolean
+  created_at: string
+}
+
+export type ErrorLog = {
+  id: string
+  user_id: string
+  subject_id: string
+  concept: string
+  error_description: string
+  correction: string | null
+  source: string | null
+  date: string
+  is_resolved: boolean
+  created_at: string
+}
+
+export type TimetableEntry = {
+  id: string
+  user_id: string
+  subject_id: string | null
+  day_of_week: number
+  start_time: string
+  end_time: string
+  room: string | null
+  notes: string | null
+  created_at: string
+}
+
+export const ASSESSMENT_TYPES = [
+  { value: 'IA', label: 'Internal Assessment' },
+  { value: 'test', label: 'Test' },
+  { value: 'exam', label: 'Exam' },
+  { value: 'quiz', label: 'Quiz' },
+  { value: 'essay', label: 'Essay' },
+  { value: 'presentation', label: 'Presentation' },
+  { value: 'homework', label: 'Homework' },
+  { value: 'other', label: 'Other' },
+] as const
+
+export const RESOURCE_TYPES = [
+  { value: 'video', label: 'Video' },
+  { value: 'article', label: 'Article' },
+  { value: 'pdf', label: 'PDF' },
+  { value: 'website', label: 'Website' },
+  { value: 'book', label: 'Book' },
+  { value: 'other', label: 'Other' },
+] as const
+
+export const IB_GRADES = [
+  { value: 7, label: '7 - Excellent' },
+  { value: 6, label: '6 - Very Good' },
+  { value: 5, label: '5 - Good' },
+  { value: 4, label: '4 - Satisfactory' },
+  { value: 3, label: '3 - Mediocre' },
+  { value: 2, label: '2 - Poor' },
+  { value: 1, label: '1 - Very Poor' },
+] as const
+
+export const DAYS_OF_WEEK = [
+  { value: 0, label: 'Sunday' },
+  { value: 1, label: 'Monday' },
+  { value: 2, label: 'Tuesday' },
+  { value: 3, label: 'Wednesday' },
+  { value: 4, label: 'Thursday' },
+  { value: 5, label: 'Friday' },
+  { value: 6, label: 'Saturday' },
+] as const
 
 export type Task = {
   id: string
