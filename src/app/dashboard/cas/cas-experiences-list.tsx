@@ -1,15 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { CASExperience, CASReflection, CASExperienceOutcome, SUBJECT_COLORS } from '@/lib/types'
+import { CASExperience, CASReflection, CASExperienceOutcome } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { ExperienceDialog } from '@/components/cas/experience-dialog'
+import { ExperienceCard } from '@/components/cas/experience-card'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Plus, Pencil, Trash2, MessageSquare } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { format } from 'date-fns'
 
 interface CASExperiencesListProps {
   initialExperiences: CASExperience[]
@@ -46,27 +44,35 @@ export function CASExperiencesList({
     const { outcomes: selectedOutcomes, ...experienceData } = data
 
     if (editingExperience) {
-      // Update experience
       const { error } = await supabase
         .from('cas_experiences')
         .update(experienceData)
         .eq('id', editingExperience.id)
 
       if (!error) {
-        // Delete existing outcomes and re-add
         await supabase
           .from('cas_experience_outcomes')
           .delete()
           .eq('experience_id', editingExperience.id)
 
         if (selectedOutcomes.length > 0) {
-          await supabase
+          const { data: newOutcomes } = await supabase
             .from('cas_experience_outcomes')
             .insert(selectedOutcomes.map(num => ({
               user_id: user?.id,
               experience_id: editingExperience.id,
               outcome_number: num,
             })))
+            .select()
+
+          if (newOutcomes) {
+            setOutcomes([
+              ...outcomes.filter(o => o.experience_id !== editingExperience.id),
+              ...newOutcomes
+            ])
+          }
+        } else {
+          setOutcomes(outcomes.filter(o => o.experience_id !== editingExperience.id))
         }
 
         setExperiences(experiences.map(e => 
@@ -74,7 +80,6 @@ export function CASExperiencesList({
         ))
       }
     } else {
-      // Create new experience
       const { data: newExperience, error } = await supabase
         .from('cas_experiences')
         .insert({ ...experienceData, user_id: user?.id })
@@ -82,7 +87,6 @@ export function CASExperiencesList({
         .single()
 
       if (!error && newExperience) {
-        // Add outcomes
         if (selectedOutcomes.length > 0) {
           const { data: newOutcomes } = await supabase
             .from('cas_experience_outcomes')
@@ -131,12 +135,11 @@ export function CASExperiencesList({
     setDialogOpen(true)
   }
 
-  const getStrandBadges = (exp: CASExperience) => {
-    const badges = []
-    if (exp.is_creativity) badges.push({ label: 'C', color: 'bg-purple-500' })
-    if (exp.is_activity) badges.push({ label: 'A', color: 'bg-red-500' })
-    if (exp.is_service) badges.push({ label: 'S', color: 'bg-green-500' })
-    return badges
+  const handleReflectionsChange = (experienceId: string, newReflections: CASReflection[]) => {
+    setReflections([
+      ...reflections.filter(r => r.experience_id !== experienceId),
+      ...newReflections
+    ])
   }
 
   return (
@@ -159,65 +162,19 @@ export function CASExperiencesList({
         </div>
       ) : (
         <div className="space-y-4">
-          {experiences.map(experience => {
-            const expReflections = reflections.filter(r => r.experience_id === experience.id)
-            const expOutcomes = outcomes.filter(o => o.experience_id === experience.id)
-            const strandBadges = getStrandBadges(experience)
-
-            return (
-              <Card key={experience.id}>
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg">{experience.title}</CardTitle>
-                        {experience.is_cas_project && (
-                          <Badge variant="outline" className="text-xs">CAS Project</Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>{format(new Date(experience.date), 'MMM d, yyyy')}</span>
-                        <span>•</span>
-                        <span>{experience.hours}h</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {strandBadges.map(badge => (
-                        <span 
-                          key={badge.label}
-                          className={`w-6 h-6 rounded-full ${badge.color} text-white text-xs flex items-center justify-center font-medium`}
-                        >
-                          {badge.label}
-                        </span>
-                      ))}
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(experience)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(experience)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {experience.description && (
-                    <p className="text-sm text-muted-foreground mb-3">{experience.description}</p>
-                  )}
-                  <div className="flex items-center gap-4 text-sm">
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <MessageSquare className="h-4 w-4" />
-                      {expReflections.length} reflection{expReflections.length !== 1 ? 's' : ''}
-                    </span>
-                    {expOutcomes.length > 0 && (
-                      <span className="text-muted-foreground">
-                        Outcomes: {expOutcomes.map(o => o.outcome_number).sort().join(', ')}
-                      </span>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
+          {experiences.map(experience => (
+            <ExperienceCard
+              key={experience.id}
+              experience={experience}
+              reflections={reflections.filter(r => r.experience_id === experience.id)}
+              outcomes={outcomes.filter(o => o.experience_id === experience.id)}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              onReflectionsChange={(newReflections) => 
+                handleReflectionsChange(experience.id, newReflections)
+              }
+            />
+          ))}
         </div>
       )}
 
