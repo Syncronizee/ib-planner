@@ -22,6 +22,7 @@ export function Header({ email }: HeaderProps) {
   const navItems = [
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/dashboard/cas', label: 'CAS' },
+    { href: '/dashboard/tok', label: 'TOK' },   
   ]
 
   return (

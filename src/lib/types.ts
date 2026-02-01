@@ -70,3 +70,89 @@ export const CAS_LEARNING_OUTCOMES = [
   { number: 6, short: 'Global Significance', full: 'Demonstrate engagement with issues of global significance' },
   { number: 7, short: 'Ethics', full: 'Recognize and consider the ethics of choices and actions' },
 ] as const
+
+export type TOKEssay = {
+  id: string
+  user_id: string
+  prescribed_title: string | null
+  thesis: string | null
+  outline: string | null
+  status: 'not_started' | 'planning' | 'drafting' | 'revising' | 'complete'
+  word_count: number
+  deadline: string | null
+  created_at: string
+}
+
+export type TOKExhibition = {
+  id: string
+  user_id: string
+  prompt: string | null
+  status: 'not_started' | 'selecting_objects' | 'writing_commentaries' | 'complete'
+  deadline: string | null
+  created_at: string
+}
+
+export type TOKExhibitionObject = {
+  id: string
+  user_id: string
+  exhibition_id: string
+  object_number: number
+  title: string | null
+  description: string | null
+  commentary: string | null
+  created_at: string
+}
+
+export type TOKKnowledgeQuestion = {
+  id: string
+  user_id: string
+  question: string
+  aok: string[]
+  wok: string[]
+  notes: string | null
+  created_at: string
+}
+
+export type TOKNote = {
+  id: string
+  user_id: string
+  category_type: 'aok' | 'wok'
+  category_name: string
+  content: string | null
+  created_at: string
+}
+
+export const AREAS_OF_KNOWLEDGE = [
+  'Mathematics',
+  'Natural Sciences',
+  'Human Sciences',
+  'Arts',
+  'History',
+  'Ethics',
+] as const
+
+export const WAYS_OF_KNOWING = [
+  'Reason',
+  'Emotion',
+  'Language',
+  'Perception',
+  'Imagination',
+  'Faith',
+  'Intuition',
+  'Memory',
+] as const
+
+export const TOK_ESSAY_STATUSES = [
+  { value: 'not_started', label: 'Not Started' },
+  { value: 'planning', label: 'Planning' },
+  { value: 'drafting', label: 'Drafting' },
+  { value: 'revising', label: 'Revising' },
+  { value: 'complete', label: 'Complete' },
+] as const
+
+export const TOK_EXHIBITION_STATUSES = [
+  { value: 'not_started', label: 'Not Started' },
+  { value: 'selecting_objects', label: 'Selecting Objects' },
+  { value: 'writing_commentaries', label: 'Writing Commentaries' },
+  { value: 'complete', label: 'Complete' },
+] as const
