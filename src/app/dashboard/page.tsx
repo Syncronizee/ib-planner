@@ -2,7 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { SubjectsSection } from './subjects-section'
 import { TasksSection } from './tasks-section'
-import { LogoutButton } from './logout-button'
+import { Header } from '@/components/layout/header'
+import { StatsCards } from '@/components/dashboard/stats-cards'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -23,21 +24,21 @@ export default async function DashboardPage() {
     .order('due_date', { ascending: true, nullsFirst: false })
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Dashboard</h1>
-            <p className="text-muted-foreground">{user.email}</p>
-          </div>
-          <LogoutButton />
+    <div className="min-h-screen bg-background">
+      <Header email={user.email || ''} />
+      
+      <main className="max-w-4xl mx-auto px-4 sm:px-8 py-8">
+        <div className="mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold">Welcome back</h1>
+          <p className="text-muted-foreground">Here's your IB overview</p>
         </div>
 
         <div className="space-y-8">
+          <StatsCards subjects={subjects || []} tasks={tasks || []} />
           <SubjectsSection initialSubjects={subjects || []} />
           <TasksSection initialTasks={tasks || []} subjects={subjects || []} />
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   )
 }
