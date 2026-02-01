@@ -14,6 +14,17 @@ export type Subject = {
   created_at: string
 }
 
+export const ERROR_TYPES = [
+  { value: 'content_gap', label: 'Content Gap', description: 'Missing knowledge or understanding' },
+  { value: 'logic_gap', label: 'Logic Gap', description: 'Flawed reasoning or problem-solving' },
+  { value: 'careless', label: 'Careless Error', description: 'Silly mistakes, misreading, calculation errors' },
+] as const
+
+export const WEAKNESS_TYPES = [
+  { value: 'content', label: 'Content', description: 'Topics or concepts you don\'t understand' },
+  { value: 'logic', label: 'Logic', description: 'Problem-solving or reasoning skills' },
+] as const
+
 export type GradeHistory = {
   id: string
   user_id: string
@@ -69,6 +80,7 @@ export type WeaknessTag = {
   subject_id: string
   tag: string
   description: string | null
+  weakness_type: 'content' | 'logic'
   is_resolved: boolean
   created_at: string
 }
@@ -80,6 +92,7 @@ export type ErrorLog = {
   concept: string
   error_description: string
   correction: string | null
+  error_type: 'content_gap' | 'logic_gap' | 'careless'
   source: string | null
   date: string
   is_resolved: boolean
