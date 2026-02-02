@@ -356,3 +356,32 @@ export const DEFAULT_TOK_EXHIBITION_PROMPTS = [
   "How can we distinguish between good and bad interpretations?",
   "Is knowledge always a representation of something else?",
 ] as const
+
+export type Note = {
+  id: string
+  user_id: string
+  subject_id: string
+  topic_id: string | null
+  title: string
+  content: any // Tiptap JSON content
+  plain_text: string | null
+  has_drawing: boolean
+  drawing_data: any | null // Excalidraw JSON data
+  created_at: string
+  updated_at: string
+}
+
+export type NoteImage = {
+  id: string
+  user_id: string
+  note_id: string
+  storage_path: string
+  file_name: string | null
+  file_size: number | null
+  mime_type: string | null
+  created_at: string
+}
+
+export type NoteWithTopic = Note & {
+  syllabus_topics?: SyllabusTopic | null
+}
