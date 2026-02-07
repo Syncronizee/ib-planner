@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -60,6 +61,9 @@ export function SubjectDialog({ open, onOpenChange, subject, onSave }: SubjectDi
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{subject ? 'Edit Subject' : 'Add Subject'}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {subject ? 'Update a subject.' : 'Create a new subject.'}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">

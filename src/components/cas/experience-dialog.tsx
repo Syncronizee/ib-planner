@@ -12,6 +12,7 @@ import { Calendar } from '@/components/ui/calendar'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -111,6 +112,9 @@ export function ExperienceDialog({
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{experience ? 'Edit Experience' : 'Add Experience'}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {experience ? 'Update a CAS experience.' : 'Create a new CAS experience.'}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">

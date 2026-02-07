@@ -130,36 +130,40 @@ export function GradesTab({
   const gradeGap = targetGrade && currentGrade ? targetGrade - currentGrade : null
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Current Grades */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold">Current Grades</h3>
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h3 className="font-semibold text-sm sm:text-base">Current Grades</h3>
           {!editing ? (
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+            <Button variant="outline" size="sm" onClick={() => setEditing(true)} className="text-xs sm:text-sm h-8 sm:h-9">
               Edit
             </Button>
           ) : (
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
-              <Button size="sm" onClick={handleSaveGrades}>Save</Button>
+              <Button variant="outline" size="sm" onClick={() => setEditing(false)} className="text-xs sm:text-sm h-8 sm:h-9">
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleSaveGrades} className="text-xs sm:text-sm h-8 sm:h-9">
+                Save
+              </Button>
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4">
           <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                <GraduationCap className="h-4 w-4" />
-                <span className="text-sm">Current</span>
+            <CardContent className="pt-3 sm:pt-4 p-2 sm:p-4">
+              <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground mb-1 sm:mb-2">
+                <GraduationCap className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="text-[10px] sm:text-sm">Current</span>
               </div>
               {editing ? (
                 <Select 
                   value={currentGrade?.toString() || 'none'} 
                   onValueChange={(v) => setCurrentGrade(v === 'none' ? null : parseInt(v))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8 sm:h-10 text-xs sm:text-sm">
                     <SelectValue placeholder="-" />
                   </SelectTrigger>
                   <SelectContent>
@@ -170,23 +174,23 @@ export function GradesTab({
                   </SelectContent>
                 </Select>
               ) : (
-                <p className="text-3xl font-bold">{currentGrade ?? '-'}</p>
+                <p className="text-xl sm:text-2xl lg:text-3xl font-bold">{currentGrade ?? '-'}</p>
               )}
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                <TrendingUp className="h-4 w-4" />
-                <span className="text-sm">Predicted</span>
+            <CardContent className="pt-3 sm:pt-4 p-2 sm:p-4">
+              <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground mb-1 sm:mb-2">
+                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="text-[10px] sm:text-sm">Predicted</span>
               </div>
               {editing ? (
                 <Select 
                   value={predictedGrade?.toString() || 'none'} 
                   onValueChange={(v) => setPredictedGrade(v === 'none' ? null : parseInt(v))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8 sm:h-10 text-xs sm:text-sm">
                     <SelectValue placeholder="-" />
                   </SelectTrigger>
                   <SelectContent>
@@ -197,23 +201,23 @@ export function GradesTab({
                   </SelectContent>
                 </Select>
               ) : (
-                <p className="text-3xl font-bold">{predictedGrade ?? '-'}</p>
+                <p className="text-xl sm:text-2xl lg:text-3xl font-bold">{predictedGrade ?? '-'}</p>
               )}
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                <Target className="h-4 w-4" />
-                <span className="text-sm">Target</span>
+            <CardContent className="pt-3 sm:pt-4 p-2 sm:p-4">
+              <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground mb-1 sm:mb-2">
+                <Target className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="text-[10px] sm:text-sm">Target</span>
               </div>
               {editing ? (
                 <Select 
                   value={targetGrade?.toString() || 'none'} 
                   onValueChange={(v) => setTargetGrade(v === 'none' ? null : parseInt(v))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8 sm:h-10 text-xs sm:text-sm">
                     <SelectValue placeholder="-" />
                   </SelectTrigger>
                   <SelectContent>
@@ -224,7 +228,7 @@ export function GradesTab({
                   </SelectContent>
                 </Select>
               ) : (
-                <p className="text-3xl font-bold">{targetGrade ?? '-'}</p>
+                <p className="text-xl sm:text-2xl lg:text-3xl font-bold">{targetGrade ?? '-'}</p>
               )}
             </CardContent>
           </Card>
@@ -232,8 +236,8 @@ export function GradesTab({
 
         {/* Grade gap indicator */}
         {gradeGap !== null && gradeGap !== 0 && (
-          <div className={`mt-4 p-3 rounded-lg ${gradeGap > 0 ? 'bg-amber-50 dark:bg-amber-950' : 'bg-green-50 dark:bg-green-950'}`}>
-            <p className="text-sm">
+          <div className={`mt-3 sm:mt-4 p-2 sm:p-3 rounded-lg ${gradeGap > 0 ? 'bg-amber-50 dark:bg-amber-950' : 'bg-green-50 dark:bg-green-950'}`}>
+            <p className="text-xs sm:text-sm">
               {gradeGap > 0 
                 ? `📈 ${gradeGap} grade${gradeGap > 1 ? 's' : ''} to reach your target`
                 : `🎉 You're ${Math.abs(gradeGap)} grade${Math.abs(gradeGap) > 1 ? 's' : ''} above your target!`
@@ -243,8 +247,8 @@ export function GradesTab({
         )}
 
         {/* Confidence */}
-        <div className="mt-4 space-y-2">
-          <Label>Confidence: {confidenceLabels[confidence]}</Label>
+        <div className="mt-3 sm:mt-4 space-y-2">
+          <Label className="text-xs sm:text-sm">Confidence: {confidenceLabels[confidence]}</Label>
           {editing ? (
             <Slider
               value={[confidence]}
@@ -258,7 +262,7 @@ export function GradesTab({
               {[1, 2, 3, 4, 5].map((level) => (
                 <div
                   key={level}
-                  className={`flex-1 h-3 rounded-sm ${
+                  className={`flex-1 h-2 sm:h-3 rounded-sm ${
                     level <= confidence ? colorClass : 'bg-muted'
                   }`}
                 />
@@ -270,25 +274,27 @@ export function GradesTab({
 
       {/* Grade History */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold">Grade History</h3>
-          <Button variant="outline" size="sm" onClick={() => setAddingHistory(true)}>
-            <Plus className="h-4 w-4 mr-1" />
-            Add Entry
-          </Button>
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h3 className="font-semibold text-sm sm:text-base">Grade History</h3>
+          {!addingHistory && (
+            <Button variant="outline" size="sm" onClick={() => setAddingHistory(true)} className="text-xs sm:text-sm h-8 sm:h-9">
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              Add Entry
+            </Button>
+          )}
         </div>
 
         {addingHistory && (
-          <Card className="mb-4">
-            <CardContent className="pt-4 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Grade</Label>
+          <Card className="mb-3 sm:mb-4">
+            <CardContent className="pt-3 sm:pt-4 p-3 sm:p-4 space-y-3 sm:space-y-4">
+              <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                <div className="space-y-1 sm:space-y-2">
+                  <Label className="text-xs sm:text-sm">Grade</Label>
                   <Select 
                     value={historyGrade.toString()} 
                     onValueChange={(v) => setHistoryGrade(parseInt(v))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-8 sm:h-10 text-xs sm:text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -298,13 +304,13 @@ export function GradesTab({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Type</Label>
+                <div className="space-y-1 sm:space-y-2">
+                  <Label className="text-xs sm:text-sm">Type</Label>
                   <Select 
                     value={historyType} 
-                    onValueChange={(v: any) => setHistoryType(v)}
+                    onValueChange={(v: GradeHistory['grade_type']) => setHistoryType(v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-8 sm:h-10 text-xs sm:text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -318,22 +324,23 @@ export function GradesTab({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Label (optional)</Label>
+              <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                <div className="space-y-1 sm:space-y-2">
+                  <Label className="text-xs sm:text-sm">Label (optional)</Label>
                   <Input
                     placeholder="e.g. Semester 1"
                     value={historyLabel}
                     onChange={(e) => setHistoryLabel(e.target.value)}
+                    className="h-8 sm:h-10 text-xs sm:text-sm"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Date</Label>
+                <div className="space-y-1 sm:space-y-2">
+                  <Label className="text-xs sm:text-sm">Date</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(historyDate, 'PPP')}
+                      <Button variant="outline" className="w-full justify-start text-left font-normal h-8 sm:h-10 text-xs sm:text-sm">
+                        <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                        {format(historyDate, 'MMM d')}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
@@ -349,15 +356,19 @@ export function GradesTab({
               </div>
 
               <div className="flex gap-2">
-                <Button onClick={handleAddHistory}>Save</Button>
-                <Button variant="outline" onClick={() => setAddingHistory(false)}>Cancel</Button>
+                <Button onClick={handleAddHistory} size="sm" className="text-xs sm:text-sm h-8 sm:h-9">
+                  Save
+                </Button>
+                <Button variant="outline" onClick={() => setAddingHistory(false)} size="sm" className="text-xs sm:text-sm h-8 sm:h-9">
+                  Cancel
+                </Button>
               </div>
             </CardContent>
           </Card>
         )}
 
         {gradeHistory.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
+          <p className="text-xs sm:text-sm text-muted-foreground text-center py-6 sm:py-8">
             No grade history yet. Track your progress over time!
           </p>
         ) : (
@@ -365,23 +376,23 @@ export function GradesTab({
             {gradeHistory.map((entry) => (
               <div 
                 key={entry.id}
-                className="flex items-center justify-between p-3 border rounded-lg"
+                className="flex items-center justify-between p-2 sm:p-3 border rounded-lg"
               >
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-full ${colorClass} flex items-center justify-center text-white font-bold`}>
+                <div className="flex items-center gap-2 sm:gap-4">
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full ${colorClass} flex items-center justify-center text-white font-bold text-sm sm:text-base`}>
                     {entry.grade}
                   </div>
                   <div>
-                    <p className="font-medium">
+                    <p className="font-medium text-xs sm:text-sm">
                       {entry.label || entry.grade_type.charAt(0).toUpperCase() + entry.grade_type.slice(1)}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">
                       {format(new Date(entry.date), 'MMM d, yyyy')}
                     </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => handleDeleteHistory(entry.id)}>
-                  <Trash2 className="h-4 w-4" />
+                <Button variant="ghost" size="icon" onClick={() => handleDeleteHistory(entry.id)} className="h-7 w-7 sm:h-8 sm:w-8">
+                  <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             ))}

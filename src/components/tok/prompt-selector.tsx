@@ -16,6 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -106,6 +107,9 @@ export function PromptSelector({
           <DialogTitle>
             Select {type === 'essay' ? 'Prescribed Title' : 'Exhibition Prompt'}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Choose a {type === 'essay' ? 'TOK essay prescribed title' : 'TOK exhibition prompt'}.
+          </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="default">

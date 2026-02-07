@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -202,6 +203,9 @@ export function TOKExhibitionSection({ initialExhibition, initialObjects, initia
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit TOK Exhibition</DialogTitle>
+            <DialogDescription className="sr-only">
+              Edit TOK exhibition details and selected objects.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">

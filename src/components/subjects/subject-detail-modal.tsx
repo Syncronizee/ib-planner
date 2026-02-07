@@ -16,15 +16,16 @@ import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { useRouter } from 'next/navigation'
 
 import { GradesTab } from './tabs/grades-tab'
 import { AssessmentsTab } from './tabs/assessments-tab'
+import { HomeworkTab } from './tabs/homework-tab'
 import { ResourcesTab } from './tabs/resources-tab'
 import { SyllabusTab } from './tabs/syllabus-tab'
 import { WeaknessesTab } from './tabs/weaknesses-tab'
@@ -100,39 +101,46 @@ export function SubjectDetailModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 gap-0">
-        {/* Header */}
-        <DialogHeader className="px-8 py-6 border-b bg-muted/30">
-          <div className="flex items-center gap-6">
-            <div className={`w-3 h-16 rounded-full ${colorClass}`} />
-            <div className="flex-1 min-w-0">
-              <DialogTitle className="text-3xl font-bold truncate">{subject.name}</DialogTitle>
-              <div className="flex items-center gap-3 mt-2">
-                <Badge variant="secondary" className="text-sm px-3 py-1">{subject.level}</Badge>
-                {subject.teacher_name && (
-                  <span className="text-sm text-muted-foreground truncate">
-                    {subject.teacher_name}
-                  </span>
-                )}
+        {/* Header - Fixed */}
+        <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b bg-muted/30 shrink-0">
+          <div className="flex items-center gap-3 sm:gap-6">
+            <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+              <div className={`w-2 h-10 sm:h-12 rounded-full shrink-0 ${colorClass}`} />
+              <div className="min-w-0">
+                <DialogTitle className="text-base sm:text-xl lg:text-2xl font-bold truncate">
+                  {subject.name}
+                </DialogTitle>
+                <DialogDescription className="sr-only">
+                  View subject details, grades, assessments, homework, and notes.
+                </DialogDescription>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <Badge variant="secondary" className="text-[10px] sm:text-xs">{subject.level}</Badge>
+                  {subject.teacher_name && (
+                    <span className="text-[10px] sm:text-xs text-muted-foreground truncate hidden sm:inline">
+                      {subject.teacher_name}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             {/* Quick stats */}
-            <div className="flex gap-8 text-center shrink-0">
-              <div className="px-4">
-                <p className="text-4xl font-bold">{subject.current_grade ?? '-'}</p>
-                <p className="text-sm text-muted-foreground mt-1">Current</p>
+            <div className="flex gap-3 sm:gap-6 text-center shrink-0">
+              <div className="px-1 sm:px-3">
+                <p className="text-lg sm:text-2xl lg:text-3xl font-bold">{subject.current_grade ?? '-'}</p>
+                <p className="text-[8px] sm:text-[10px] text-muted-foreground">Current</p>
               </div>
-              <div className="px-4 border-l">
-                <p className="text-4xl font-bold">{subject.predicted_grade ?? '-'}</p>
-                <p className="text-sm text-muted-foreground mt-1">Predicted</p>
+              <div className="px-1 sm:px-3 border-l">
+                <p className="text-lg sm:text-2xl lg:text-3xl font-bold">{subject.predicted_grade ?? '-'}</p>
+                <p className="text-[8px] sm:text-[10px] text-muted-foreground">Predicted</p>
               </div>
-              <div className="px-4 border-l">
-                <p className="text-4xl font-bold">{subject.target_grade ?? '-'}</p>
-                <p className="text-sm text-muted-foreground mt-1">Target</p>
+              <div className="px-1 sm:px-3 border-l">
+                <p className="text-lg sm:text-2xl lg:text-3xl font-bold">{subject.target_grade ?? '-'}</p>
+                <p className="text-[8px] sm:text-[10px] text-muted-foreground">Target</p>
               </div>
               {averageScore !== null && (
-                <div className="px-4 border-l hidden lg:block">
-                  <p className="text-4xl font-bold">{averageScore}%</p>
-                  <p className="text-sm text-muted-foreground mt-1">Avg Score</p>
+                <div className="px-1 sm:px-3 border-l hidden md:block">
+                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold">{averageScore}%</p>
+                  <p className="text-[8px] sm:text-[10px] text-muted-foreground">Avg</p>
                 </div>
               )}
             </div>
@@ -140,69 +148,77 @@ export function SubjectDetailModal({
         </DialogHeader>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-8 py-4 border-b bg-background">
-            <TabsList className="inline-flex h-12 items-center justify-start rounded-lg bg-muted p-1.5">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+          {/* Tab List - Fixed */}
+          <div className="px-4 sm:px-6 py-2 border-b bg-background shrink-0 overflow-x-auto">
+            <TabsList className="inline-flex h-8 sm:h-10 items-center justify-start rounded-lg bg-muted p-1">
               <TabsTrigger 
                 value="grades" 
-                className="px-6 py-2.5 text-sm font-medium whitespace-nowrap rounded-md"
+                className="px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-md"
               >
                 Grades
               </TabsTrigger>
               <TabsTrigger 
                 value="assessments" 
-                className="px-6 py-2.5 text-sm font-medium whitespace-nowrap rounded-md"
+                className="px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-md"
               >
                 Assessments
               </TabsTrigger>
               <TabsTrigger 
+                value="homework" 
+                className="px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-md"
+              >
+                Homework
+              </TabsTrigger>
+              <TabsTrigger 
                 value="syllabus" 
-                className="px-6 py-2.5 text-sm font-medium whitespace-nowrap rounded-md"
+                className="px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-md"
               >
                 Syllabus
               </TabsTrigger>
               <TabsTrigger 
                 value="resources" 
-                className="px-6 py-2.5 text-sm font-medium whitespace-nowrap rounded-md"
+                className="px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-md"
               >
                 Resources
               </TabsTrigger>
               <TabsTrigger 
                 value="weaknesses" 
-                className="px-6 py-2.5 text-sm font-medium whitespace-nowrap rounded-md flex items-center gap-2"
+                className="px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-md flex items-center gap-1"
               >
                 Weaknesses
                 {unresolvedWeaknesses > 0 && (
-                  <Badge variant="destructive" className="h-5 min-w-5 p-0 text-xs flex items-center justify-center">
+                  <Badge variant="destructive" className="h-4 w-4 p-0 text-[8px] flex items-center justify-center">
                     {unresolvedWeaknesses}
                   </Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger 
                 value="errors" 
-                className="px-6 py-2.5 text-sm font-medium whitespace-nowrap rounded-md flex items-center gap-2"
+                className="px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-md flex items-center gap-1"
               >
                 Errors
                 {unresolvedErrors > 0 && (
-                  <Badge variant="destructive" className="h-5 min-w-5 p-0 text-xs flex items-center justify-center">
+                  <Badge variant="destructive" className="h-4 w-4 p-0 text-[8px] flex items-center justify-center">
                     {unresolvedErrors}
                   </Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger 
                 value="notes" 
-                className="px-6 py-2.5 text-sm font-medium whitespace-nowrap rounded-md"
+                className="px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-md"
               >
                 Notes
               </TabsTrigger>
             </TabsList>
           </div>
 
-          <ScrollArea className="flex-1">
-            <div className="p-8">
+          {/* Tab Content - Scrollable */}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="p-4 sm:p-6">
               {loading ? (
-                <div className="flex items-center justify-center h-64">
-                  <p className="text-muted-foreground">Loading...</p>
+                <div className="flex items-center justify-center h-32">
+                  <p className="text-muted-foreground text-sm">Loading...</p>
                 </div>
               ) : (
                 <>
@@ -221,6 +237,10 @@ export function SubjectDetailModal({
                       assessments={assessments}
                       onAssessmentsChange={setAssessments}
                     />
+                  </TabsContent>
+
+                  <TabsContent value="homework" className="mt-0 m-0">
+                    <HomeworkTab subject={subject} />
                   </TabsContent>
 
                   <TabsContent value="syllabus" className="mt-0 m-0">
@@ -264,7 +284,7 @@ export function SubjectDetailModal({
                 </>
               )}
             </div>
-          </ScrollArea>
+          </div>
         </Tabs>
       </DialogContent>
     </Dialog>

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -231,6 +232,9 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editing ? 'Edit Class' : 'Add Class'}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {editing ? 'Update a weekly class entry.' : 'Create a new weekly class entry.'}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">

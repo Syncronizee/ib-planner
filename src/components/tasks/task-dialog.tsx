@@ -10,6 +10,7 @@ import { Calendar } from '@/components/ui/calendar'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -72,6 +73,9 @@ export function TaskDialog({ open, onOpenChange, task, subjects, onSave }: TaskD
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{task ? 'Edit Task' : 'Add Task'}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {task ? 'Update an existing task.' : 'Create a new task.'}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">

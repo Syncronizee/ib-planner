@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { RichTextEditor } from '@/components/notes/rich-text-editor'
+import { DrawingPreview } from '@/components/notes/drawing-preview'
 import { useImageUpload } from '@/hooks/use-image-upload'
 import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +11,8 @@ import { Badge } from '@/components/ui/badge'
 export default function NotesTestPage() {
   const [content, setContent] = useState<any>(null)
   const [plainText, setPlainText] = useState('')
+  const [drawingData, setDrawingData] = useState<any>(null)
+  const [drawingPreview, setDrawingPreview] = useState<string | null>(null)
   const { upload, deleteImage, uploading, uploadedImages } = useImageUpload()
 
   const handleChange = (newContent: any, newPlainText: string) => {
@@ -20,6 +23,22 @@ export default function NotesTestPage() {
   const handleImageDelete = async (src: string) => {
     console.log('Deleting image:', src)
     await deleteImage(src)
+  }
+
+  const handleDrawingSave = (data: any, imageDataUrl: string) => {
+    console.log('Drawing saved:', data)
+    setDrawingData(data)
+    setDrawingPreview(imageDataUrl)
+  }
+
+  const handleDrawingUpdate = (data: any, imageDataUrl: string) => {
+    setDrawingData(data)
+    setDrawingPreview(imageDataUrl)
+  }
+
+  const handleDrawingDelete = () => {
+    setDrawingData(null)
+    setDrawingPreview(null)
   }
 
   return (
@@ -43,10 +62,28 @@ export default function NotesTestPage() {
                 onChange={handleChange}
                 onImageUpload={upload}
                 onImageDelete={handleImageDelete}
-                placeholder="Start writing your notes here... Try pasting or dragging an image!"
+                onDrawingSave={handleDrawingSave}
+                drawingData={drawingData}
+                placeholder="Start writing your notes here... Try the pencil icon to draw!"
               />
             </CardContent>
           </Card>
+
+          {drawingPreview && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Saved Drawing</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DrawingPreview
+                  drawingData={drawingData}
+                  previewImage={drawingPreview}
+                  onUpdate={handleDrawingUpdate}
+                  onDelete={handleDrawingDelete}
+                />
+              </CardContent>
+            </Card>
+          )}
 
           {uploadedImages.length > 0 && (
             <Card>

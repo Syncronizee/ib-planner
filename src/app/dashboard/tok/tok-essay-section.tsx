@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -159,6 +160,9 @@ export function TOKEssaySection({ initialEssay, initialUserPrompts }: TOKEssaySe
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit TOK Essay</DialogTitle>
+            <DialogDescription className="sr-only">
+              Edit TOK essay details and progress.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">

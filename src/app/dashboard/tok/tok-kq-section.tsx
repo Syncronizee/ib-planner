@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -168,6 +169,9 @@ export function TOKKnowledgeQuestionsSection({ initialQuestions }: TOKKnowledgeQ
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingQuestion ? 'Edit' : 'Add'} Knowledge Question</DialogTitle>
+            <DialogDescription className="sr-only">
+              {editingQuestion ? 'Update a knowledge question.' : 'Create a new knowledge question.'}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">

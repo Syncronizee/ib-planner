@@ -48,6 +48,8 @@ export type Assessment = {
   weight: number | null
   date: string | null
   notes: string | null
+  is_completed: boolean
+  linked_task_id: string | null
   created_at: string
 }
 
@@ -154,11 +156,14 @@ export const DAYS_OF_WEEK = [
 export type Task = {
   id: string
   user_id: string
-  subject_id: string | null
   title: string
   description: string | null
   due_date: string | null
   is_completed: boolean
+  priority: 'low' | 'medium' | 'high'
+  subject_id: string | null
+  category: TaskCategory
+  linked_assessment_id: string | null
   created_at: string
 }
 
@@ -385,3 +390,15 @@ export type NoteImage = {
 export type NoteWithTopic = Note & {
   syllabus_topics?: SyllabusTopic | null
 }
+
+export const TASK_CATEGORIES = [
+  { value: 'homework', label: 'Homework', color: 'bg-blue-500' },
+  { value: 'assessment', label: 'Assessment', color: 'bg-red-500' },
+  { value: 'college_prep', label: 'College Prep', color: 'bg-purple-500' },
+  { value: 'personal', label: 'Personal', color: 'bg-green-500' },
+  { value: 'project', label: 'Project', color: 'bg-orange-500' },
+  { value: 'revision', label: 'Revision', color: 'bg-amber-500' },
+  { value: 'other', label: 'Other', color: 'bg-gray-500' },
+] as const
+
+export type TaskCategory = 'homework' | 'assessment' | 'college_prep' | 'personal' | 'project' | 'revision' | 'other'

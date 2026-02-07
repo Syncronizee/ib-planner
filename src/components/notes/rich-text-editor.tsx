@@ -1,16 +1,17 @@
 'use client'
 
 import { useEditor, EditorContent } from '@tiptap/react'
-import { BubbleMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
+import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import Highlight from '@tiptap/extension-highlight'
-import { Button } from '@/components/ui/button'
 import { Toggle } from '@/components/ui/toggle'
 import { Separator } from '@/components/ui/separator'
+import { ImageToolbar } from './image-toolbar'
+import { DrawingCanvas } from './drawing-canvas'
 import {
   Bold,
   Italic,
@@ -33,16 +34,17 @@ import {
   Highlighter,
   Code2,
   Minus,
+  Pencil,
 } from 'lucide-react'
-import { useCallback, useEffect } from 'react'
-import { ImageToolbar } from './image-toolbar'
-import { CustomImage } from './image-extension'
+import { useCallback, useEffect, useState } from 'react'
 
 interface RichTextEditorProps {
   content: any
   onChange: (content: any, plainText: string) => void
   onImageUpload?: (file: File) => Promise<string | null>
   onImageDelete?: (src: string) => void
+  onDrawingSave?: (data: any, imageDataUrl: string) => void
+  drawingData?: any
   placeholder?: string
   editable?: boolean
 }
@@ -52,18 +54,22 @@ export function RichTextEditor({
   onChange,
   onImageUpload,
   onImageDelete,
+  onDrawingSave,
+  drawingData,
   placeholder = 'Start writing your notes...',
   editable = true,
 }: RichTextEditorProps) {
+  const [drawingOpen, setDrawingOpen] = useState(false)
+
   const editor = useEditor({
-    immediatelyRender: false, 
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: {
           levels: [1, 2, 3],
         },
       }),
-      CustomImage.configure({
+      Image.configure({
         HTMLAttributes: {
           class: 'rounded-lg max-w-full h-auto',
         },
@@ -127,14 +133,14 @@ export function RichTextEditor({
   })
 
   useEffect(() => {
-  if (editor && content) {
-    const currentContent = JSON.stringify(editor.getJSON())
-    const newContent = JSON.stringify(content)
-    if (currentContent !== newContent && !editor.isFocused) {
-      editor.commands.setContent(content)
+    if (editor && content) {
+      const currentContent = JSON.stringify(editor.getJSON())
+      const newContent = JSON.stringify(content)
+      if (currentContent !== newContent && !editor.isFocused) {
+        editor.commands.setContent(content)
+      }
     }
-  }
-}, [content, editor])
+  }, [content, editor])
 
   const handleImageUpload = useCallback(async (file: File) => {
     if (!onImageUpload || !editor) return
@@ -173,6 +179,18 @@ export function RichTextEditor({
 
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
   }, [editor])
+
+  const handleDrawingSave = useCallback((data: any, imageDataUrl: string) => {
+    // Insert the drawing image into the editor
+    if (editor && imageDataUrl) {
+      editor.chain().focus().setImage({ src: imageDataUrl }).run()
+    }
+    
+    // Also call the parent's save handler
+    if (onDrawingSave) {
+      onDrawingSave(data, imageDataUrl)
+    }
+  }, [editor, onDrawingSave])
 
   if (!editor) {
     return (
@@ -353,55 +371,19 @@ export function RichTextEditor({
           <Toggle
             size="sm"
             pressed={false}
+            onPressedChange={() => setDrawingOpen(true)}
+            title="Add drawing"
+          >
+            <Pencil className="h-4 w-4" />
+          </Toggle>
+          <Toggle
+            size="sm"
+            pressed={false}
             onPressedChange={() => editor.chain().focus().setHorizontalRule().run()}
           >
             <Minus className="h-4 w-4" />
           </Toggle>
         </div>
-      )}
-
-      {/* Bubble Menu (shows when text is selected) */}
-      {editor && editable && (
-        <BubbleMenu
-          editor={editor}
-          className="bg-background border rounded-lg shadow-lg p-1 flex items-center gap-1"
-        >
-          <Toggle
-            size="sm"
-            pressed={editor.isActive('bold')}
-            onPressedChange={() => editor.chain().focus().toggleBold().run()}
-          >
-            <Bold className="h-3 w-3" />
-          </Toggle>
-          <Toggle
-            size="sm"
-            pressed={editor.isActive('italic')}
-            onPressedChange={() => editor.chain().focus().toggleItalic().run()}
-          >
-            <Italic className="h-3 w-3" />
-          </Toggle>
-          <Toggle
-            size="sm"
-            pressed={editor.isActive('underline')}
-            onPressedChange={() => editor.chain().focus().toggleUnderline().run()}
-          >
-            <UnderlineIcon className="h-3 w-3" />
-          </Toggle>
-          <Toggle
-            size="sm"
-            pressed={editor.isActive('highlight')}
-            onPressedChange={() => editor.chain().focus().toggleHighlight().run()}
-          >
-            <Highlighter className="h-3 w-3" />
-          </Toggle>
-          <Toggle
-            size="sm"
-            pressed={editor.isActive('link')}
-            onPressedChange={setLink}
-          >
-            <LinkIcon className="h-3 w-3" />
-          </Toggle>
-        </BubbleMenu>
       )}
 
       {/* Editor Content */}
@@ -411,6 +393,14 @@ export function RichTextEditor({
       {editor && editable && (
         <ImageToolbar editor={editor} onDelete={onImageDelete} />
       )}
+
+      {/* Drawing Canvas */}
+      <DrawingCanvas
+        open={drawingOpen}
+        onOpenChange={setDrawingOpen}
+        initialData={drawingData}
+        onSave={handleDrawingSave}
+      />
     </div>
   )
 }

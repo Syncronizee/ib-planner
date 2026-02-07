@@ -290,3 +290,31 @@
   outline: 3px solid hsl(var(--primary));
   outline-offset: 2px;
 }
+
+/* Excalidraw sizing fixes */
+.excalidraw {
+  --ui-font: inherit;
+}
+
+.excalidraw .App-menu_top {
+  z-index: 10;
+}
+
+.excalidraw-wrapper {
+  height: 100%;
+  width: 100%;
+}
+
+/* Excalidraw overrides */
+.excalidraw {
+  --ui-font: inherit;
+}
+
+.excalidraw .App-menu_top {
+  z-index: 10;
+}
+
+.excalidraw-wrapper {
+  height: 100%;
+  width: 100%;
+}

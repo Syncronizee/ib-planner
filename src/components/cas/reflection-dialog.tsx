@@ -9,6 +9,7 @@ import { Calendar } from '@/components/ui/calendar'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -62,7 +63,9 @@ export function ReflectionDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{reflection ? 'Edit Reflection' : 'Add Reflection'}</DialogTitle>
-          <p className="text-sm text-muted-foreground">For: {experienceTitle}</p>
+          <DialogDescription className="text-sm text-muted-foreground">
+            For: {experienceTitle}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
