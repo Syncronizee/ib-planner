@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Subject, Assessment, ASSESSMENT_TYPES, TASK_CATEGORIES } from '@/lib/types'
+import { useState, useEffect } from 'react'
+import { Subject, Assessment, Task, ASSESSMENT_TYPES } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -33,7 +32,9 @@ import {
   Minus,
   Clock,
   CheckCircle2,
-  Circle
+  Circle,
+  Link as LinkIcon,
+  X,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { useRouter } from 'next/navigation'
@@ -48,6 +49,7 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<Assessment | null>(null)
   const [showIncomplete, setShowIncomplete] = useState(true)
+  const [availableTasks, setAvailableTasks] = useState<Task[]>([])
   
   const [title, setTitle] = useState('')
   const [type, setType] = useState<Assessment['type']>('test')
@@ -57,10 +59,24 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
   const [date, setDate] = useState<Date | undefined>(undefined)
   const [notes, setNotes] = useState('')
   const [isCompleted, setIsCompleted] = useState(false)
-  const [createTask, setCreateTask] = useState(true)
-  const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
+  const [linkedTaskIds, setLinkedTaskIds] = useState<string[]>([])
 
   const router = useRouter()
+
+  useEffect(() => {
+    fetchAvailableTasks()
+  }, [subject.id])
+
+  const fetchAvailableTasks = async () => {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('subject_id', subject.id)
+      .order('due_date', { ascending: true })
+    
+    setAvailableTasks(data || [])
+  }
 
   const resetForm = () => {
     setTitle('')
@@ -71,8 +87,7 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
     setDate(undefined)
     setNotes('')
     setIsCompleted(false)
-    setCreateTask(true)
-    setDueDate(undefined)
+    setLinkedTaskIds([])
     setEditing(null)
   }
 
@@ -91,7 +106,13 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
     setDate(assessment.date ? new Date(assessment.date) : undefined)
     setNotes(assessment.notes || '')
     setIsCompleted(assessment.is_completed)
-    setCreateTask(false) // Don't create new task when editing
+    
+    // Get linked task IDs from available tasks
+    const linked = availableTasks
+      .filter(t => t.linked_assessment_id === assessment.id)
+      .map(t => t.id)
+    setLinkedTaskIds(linked)
+    
     setAdding(true)
   }
 
@@ -105,30 +126,6 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
       ? Math.round((scoreNum / maxScoreNum) * 100 * 100) / 100
       : null
 
-    let linkedTaskId = editing?.linked_task_id || null
-
-    // Create linked task if requested (only for new assessments)
-    if (createTask && !editing && dueDate) {
-      const { data: taskData, error: taskError } = await supabase
-        .from('tasks')
-        .insert({
-          user_id: user?.id,
-          title: `${title} - ${subject.name}`,
-          description: notes || null,
-          due_date: format(dueDate, 'yyyy-MM-dd'),
-          is_completed: false,
-          priority: 'high',
-          subject_id: subject.id,
-          category: 'assessment',
-        })
-        .select()
-        .single()
-
-      if (!taskError && taskData) {
-        linkedTaskId = taskData.id
-      }
-    }
-
     const assessmentData = {
       title,
       type,
@@ -139,8 +136,9 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
       date: date ? format(date, 'yyyy-MM-dd') : null,
       notes: notes || null,
       is_completed: isCompleted,
-      linked_task_id: linkedTaskId,
     }
+
+    let assessmentId: string
 
     if (editing) {
       const { data, error } = await supabase
@@ -152,13 +150,20 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
 
       if (!error && data) {
         onAssessmentsChange(assessments.map(a => a.id === editing.id ? data : a))
+        assessmentId = data.id
 
-        // Update linked task completion status if exists
-        if (data.linked_task_id) {
+        // Unlink all previously linked tasks
+        await supabase
+          .from('tasks')
+          .update({ linked_assessment_id: null })
+          .eq('linked_assessment_id', editing.id)
+
+        // Link new tasks
+        if (linkedTaskIds.length > 0) {
           await supabase
             .from('tasks')
-            .update({ is_completed: isCompleted })
-            .eq('id', data.linked_task_id)
+            .update({ linked_assessment_id: assessmentId })
+            .in('id', linkedTaskIds)
         }
       }
     } else {
@@ -174,19 +179,21 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
 
       if (!error && data) {
         onAssessmentsChange([data, ...assessments])
+        assessmentId = data.id
 
-        // Update task with linked assessment id
-        if (linkedTaskId) {
+        // Link selected tasks
+        if (linkedTaskIds.length > 0) {
           await supabase
             .from('tasks')
-            .update({ linked_assessment_id: data.id })
-            .eq('id', linkedTaskId)
+            .update({ linked_assessment_id: assessmentId })
+            .in('id', linkedTaskIds)
         }
       }
     }
 
     resetForm()
     setAdding(false)
+    fetchAvailableTasks()
     router.refresh()
   }
 
@@ -204,28 +211,40 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
         a.id === assessment.id ? { ...a, is_completed: newCompletedState } : a
       ))
 
-      // Update linked task if exists
-      if (assessment.linked_task_id) {
+      // Sync all linked tasks
+      const linkedTasks = availableTasks.filter(t => t.linked_assessment_id === assessment.id)
+      if (linkedTasks.length > 0) {
         await supabase
           .from('tasks')
           .update({ is_completed: newCompletedState })
-          .eq('id', assessment.linked_task_id)
+          .in('id', linkedTasks.map(t => t.id))
+        
+        fetchAvailableTasks()
       }
     }
+  }
 
-    router.refresh()
+  const handleUnlinkTask = async (assessment: Assessment, taskId: string) => {
+    const supabase = createClient()
+
+    const { error } = await supabase
+      .from('tasks')
+      .update({ linked_assessment_id: null })
+      .eq('id', taskId)
+
+    if (!error) {
+      fetchAvailableTasks()
+    }
   }
 
   const handleDelete = async (assessment: Assessment) => {
     const supabase = createClient()
 
-    // Delete linked task first if exists
-    if (assessment.linked_task_id) {
-      await supabase
-        .from('tasks')
-        .delete()
-        .eq('id', assessment.linked_task_id)
-    }
+    // Unlink all tasks first
+    await supabase
+      .from('tasks')
+      .update({ linked_assessment_id: null })
+      .eq('linked_assessment_id', assessment.id)
 
     const { error } = await supabase
       .from('assessments')
@@ -234,14 +253,37 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
 
     if (!error) {
       onAssessmentsChange(assessments.filter(a => a.id !== assessment.id))
+      fetchAvailableTasks()
     }
-
-    router.refresh()
   }
 
   const handleCancel = () => {
     resetForm()
     setAdding(false)
+  }
+
+  const handleAddTaskToLink = (taskId: string) => {
+    if (taskId && !linkedTaskIds.includes(taskId)) {
+      setLinkedTaskIds([...linkedTaskIds, taskId])
+    }
+  }
+
+  const handleRemoveTaskFromLink = (taskId: string) => {
+    setLinkedTaskIds(linkedTaskIds.filter(id => id !== taskId))
+  }
+
+  // Get tasks that aren't already linked to OTHER assessments (allow current editing assessment's tasks)
+  const getUnlinkedTasks = () => {
+    return availableTasks.filter(t => 
+      !t.linked_assessment_id || 
+      t.linked_assessment_id === editing?.id ||
+      linkedTaskIds.includes(t.id)
+    )
+  }
+
+  // Get tasks linked to a specific assessment
+  const getLinkedTasks = (assessmentId: string) => {
+    return availableTasks.filter(t => t.linked_assessment_id === assessmentId)
   }
 
   // Calculate stats - ONLY from completed assessments
@@ -266,46 +308,42 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
   }
 
   const getScoreIcon = (percentage: number) => {
-    if (percentage >= 80) return <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
-    if (percentage >= 60) return <Minus className="h-3 w-3 sm:h-4 sm:w-4 text-amber-600" />
-    return <TrendingDown className="h-3 w-3 sm:h-4 sm:w-4 text-red-600" />
+    if (percentage >= 80) return <TrendingUp className="h-3 w-3 text-green-600" />
+    if (percentage >= 60) return <Minus className="h-3 w-3 text-amber-600" />
+    return <TrendingDown className="h-3 w-3 text-red-600" />
   }
 
-  const displayedAssessments = showIncomplete 
-    ? assessments 
-    : completedAssessments
-
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Stats - Only from completed assessments */}
+    <div className="space-y-4">
+      {/* Stats */}
       {assessments.length > 0 && (
-        <div className="grid grid-cols-4 gap-2 sm:gap-4">
+        <div className="grid grid-cols-4 gap-2">
           <Card>
-            <CardContent className="p-2 sm:pt-4 sm:p-4">
-              <p className="text-[10px] sm:text-sm text-muted-foreground">Completed</p>
-              <p className="text-lg sm:text-2xl font-bold">{completedAssessments.length}/{totalAssessments}</p>
+            <CardContent className="p-2">
+              <p className="text-[10px] text-muted-foreground">Completed</p>
+              <p className="text-lg font-bold">{completedAssessments.length}/{totalAssessments}</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-2 sm:pt-4 sm:p-4">
-              <p className="text-[10px] sm:text-sm text-muted-foreground">Average</p>
-              <p className={`text-lg sm:text-2xl font-bold ${averagePercentage ? getScoreColor(averagePercentage) : ''}`}>
+            <CardContent className="p-2">
+              <p className="text-[10px] text-muted-foreground">Average</p>
+              <p className={`text-lg font-bold ${averagePercentage ? getScoreColor(averagePercentage) : ''}`}>
                 {averagePercentage !== null ? `${averagePercentage}%` : '-'}
               </p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-2 sm:pt-4 sm:p-4">
-              <p className="text-[10px] sm:text-sm text-muted-foreground">Highest</p>
-              <p className={`text-lg sm:text-2xl font-bold ${highestScore ? getScoreColor(highestScore) : ''}`}>
+            <CardContent className="p-2">
+              <p className="text-[10px] text-muted-foreground">Highest</p>
+              <p className={`text-lg font-bold ${highestScore ? getScoreColor(highestScore) : ''}`}>
                 {highestScore !== null ? `${highestScore}%` : '-'}
               </p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-2 sm:pt-4 sm:p-4">
-              <p className="text-[10px] sm:text-sm text-muted-foreground">Lowest</p>
-              <p className={`text-lg sm:text-2xl font-bold ${lowestScore ? getScoreColor(lowestScore) : ''}`}>
+            <CardContent className="p-2">
+              <p className="text-[10px] text-muted-foreground">Lowest</p>
+              <p className={`text-lg font-bold ${lowestScore ? getScoreColor(lowestScore) : ''}`}>
                 {lowestScore !== null ? `${lowestScore}%` : '-'}
               </p>
             </CardContent>
@@ -316,8 +354,8 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
       {/* Add/Edit Form */}
       {adding ? (
         <Card>
-          <CardContent className="p-3 sm:p-4 space-y-3">
-            <h3 className="font-semibold text-sm sm:text-base">{editing ? 'Edit Assessment' : 'Add Assessment'}</h3>
+          <CardContent className="p-3 space-y-3">
+            <h3 className="font-semibold text-sm">{editing ? 'Edit Assessment' : 'Add Assessment'}</h3>
             
             {/* Row 1: Title and Type */}
             <div className="grid grid-cols-3 gap-2">
@@ -393,48 +431,73 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
               </div>
             </div>
 
-            {/* Row 3: Completed toggle */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="is_completed"
-                  checked={isCompleted}
-                  onCheckedChange={(checked) => setIsCompleted(checked as boolean)}
-                />
-                <Label htmlFor="is_completed" className="text-xs">
-                  Completed (include in grade calculation)
-                </Label>
-              </div>
+            {/* Row 3: Completed */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="is_completed"
+                checked={isCompleted}
+                onCheckedChange={(checked) => setIsCompleted(checked as boolean)}
+              />
+              <Label htmlFor="is_completed" className="text-xs">
+                Completed (include in grade calculation)
+              </Label>
             </div>
 
-            {/* Row 4: Create Task toggle (only for new assessments) */}
-            {!editing && (
-              <div className="space-y-2 p-2 border rounded-lg bg-muted/50">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">Add to Tasks/Deadlines</Label>
-                  <Switch checked={createTask} onCheckedChange={setCreateTask} />
+            {/* Row 4: Link Tasks */}
+            <div className="space-y-2 p-2 border rounded-lg bg-muted/50">
+              <Label className="text-xs flex items-center gap-1">
+                <LinkIcon className="h-3 w-3" />
+                Link Tasks ({linkedTaskIds.length})
+              </Label>
+              
+              {/* Selected Tasks */}
+              {linkedTaskIds.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {linkedTaskIds.map(taskId => {
+                    const task = availableTasks.find(t => t.id === taskId)
+                    if (!task) return null
+                    return (
+                      <Badge key={taskId} variant="secondary" className="text-xs flex items-center gap-1">
+                        {task.title}
+                        <button 
+                          onClick={() => handleRemoveTaskFromLink(taskId)}
+                          className="hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    )
+                  })}
                 </div>
-                {createTask && (
-                  <div className="space-y-1">
-                    <Label className="text-xs">Due Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start text-left font-normal h-8 text-xs">
-                          <CalendarIcon className="mr-2 h-3 w-3" />
-                          {dueDate ? format(dueDate, 'PPP') : 'Select due date'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar mode="single" selected={dueDate} onSelect={setDueDate} initialFocus />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                )}
-              </div>
-            )}
+              )}
+              
+              {/* Add Task Dropdown */}
+              <Select onValueChange={handleAddTaskToLink} value="">
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Add a task..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {getUnlinkedTasks()
+                    .filter(t => !linkedTaskIds.includes(t.id))
+                    .map(task => (
+                      <SelectItem key={task.id} value={task.id}>
+                        {task.title}
+                        {task.due_date && ` (${format(new Date(task.due_date), 'MMM d')})`}
+                      </SelectItem>
+                    ))}
+                  {getUnlinkedTasks().filter(t => !linkedTaskIds.includes(t.id)).length === 0 && (
+                    <SelectItem value="none" disabled>No tasks available</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              
+              <p className="text-[10px] text-muted-foreground">
+                Linked tasks will sync completion status with this assessment
+              </p>
+            </div>
 
             {/* Buttons */}
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-2">
               <Button onClick={handleSave} disabled={!title} size="sm" className="text-xs h-8">
                 Save
               </Button>
@@ -453,7 +516,7 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
           {incompleteAssessments.length > 0 && (
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground">Show pending</Label>
-              <Switch checked={showIncomplete} onCheckedChange={setShowIncomplete} />
+              <Checkbox checked={showIncomplete} onCheckedChange={(v) => setShowIncomplete(v as boolean)} />
             </div>
           )}
         </div>
@@ -480,9 +543,11 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
                   <AssessmentCard
                     key={assessment.id}
                     assessment={assessment}
+                    linkedTasks={getLinkedTasks(assessment.id)}
                     onToggleComplete={handleToggleComplete}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
+                    onUnlinkTask={handleUnlinkTask}
                     getScoreColor={getScoreColor}
                     getScoreIcon={getScoreIcon}
                   />
@@ -505,9 +570,11 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
                   <AssessmentCard
                     key={assessment.id}
                     assessment={assessment}
+                    linkedTasks={getLinkedTasks(assessment.id)}
                     onToggleComplete={handleToggleComplete}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
+                    onUnlinkTask={handleUnlinkTask}
                     getScoreColor={getScoreColor}
                     getScoreIcon={getScoreIcon}
                   />
@@ -523,79 +590,101 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
 // Assessment Card Component
 function AssessmentCard({
   assessment,
+  linkedTasks,
   onToggleComplete,
   onEdit,
   onDelete,
+  onUnlinkTask,
   getScoreColor,
   getScoreIcon,
 }: {
   assessment: Assessment
+  linkedTasks: Task[]
   onToggleComplete: (assessment: Assessment) => void
   onEdit: (assessment: Assessment) => void
   onDelete: (assessment: Assessment) => void
+  onUnlinkTask: (assessment: Assessment, taskId: string) => void
   getScoreColor: (percentage: number) => string
   getScoreIcon: (percentage: number) => React.ReactNode
 }) {
   return (
     <div
-      className={`flex items-center justify-between p-2 border rounded-lg hover:bg-muted/50 transition-colors ${
+      className={`p-2 border rounded-lg hover:bg-muted/50 transition-colors ${
         !assessment.is_completed ? 'border-amber-200 bg-amber-50/50 dark:bg-amber-950/20' : ''
       }`}
     >
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <button onClick={() => onToggleComplete(assessment)}>
-          {assessment.is_completed ? (
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
-          ) : (
-            <Circle className="h-5 w-5 text-muted-foreground" />
-          )}
-        </button>
-        
-        {assessment.is_completed && assessment.percentage !== null && getScoreIcon(assessment.percentage)}
-        
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1">
-            <p className={`font-medium text-xs truncate ${!assessment.is_completed ? '' : ''}`}>
-              {assessment.title}
-            </p>
-            <Badge variant="outline" className="text-[10px] shrink-0">
-              {ASSESSMENT_TYPES.find(t => t.value === assessment.type)?.label}
-            </Badge>
-            {assessment.linked_task_id && (
-              <Badge variant="secondary" className="text-[10px] shrink-0">
-                <Clock className="h-2 w-2 mr-0.5" />
-                Task
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <button onClick={() => onToggleComplete(assessment)}>
+            {assessment.is_completed ? (
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+            ) : (
+              <Circle className="h-5 w-5 text-muted-foreground" />
+            )}
+          </button>
+          
+          {assessment.is_completed && assessment.percentage !== null && getScoreIcon(assessment.percentage)}
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1 flex-wrap">
+              <p className="font-medium text-xs truncate">
+                {assessment.title}
+              </p>
+              <Badge variant="outline" className="text-[10px] shrink-0">
+                {ASSESSMENT_TYPES.find(t => t.value === assessment.type)?.label}
               </Badge>
-            )}
+            </div>
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+              {assessment.is_completed && assessment.score !== null && (
+                <span>{assessment.score}/{assessment.max_score}</span>
+              )}
+              {assessment.date && (
+                <span>{format(new Date(assessment.date), 'MMM d')}</span>
+              )}
+              {!assessment.is_completed && (
+                <span className="text-amber-600">Not graded</span>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
-            {assessment.is_completed && assessment.score !== null && (
-              <span>{assessment.score}/{assessment.max_score}</span>
-            )}
-            {assessment.date && (
-              <span>{format(new Date(assessment.date), 'MMM d')}</span>
-            )}
-            {!assessment.is_completed && (
-              <span className="text-amber-600">Not graded</span>
-            )}
-          </div>
+          
+          {assessment.is_completed && assessment.percentage !== null && (
+            <p className={`text-lg font-bold shrink-0 ${getScoreColor(assessment.percentage)}`}>
+              {assessment.percentage}%
+            </p>
+          )}
         </div>
         
-        {assessment.is_completed && assessment.percentage !== null && (
-          <p className={`text-lg font-bold shrink-0 ${getScoreColor(assessment.percentage)}`}>
-            {assessment.percentage}%
-          </p>
-        )}
+        <div className="flex gap-0.5 ml-2">
+          <Button variant="ghost" size="icon" onClick={() => onEdit(assessment)} className="h-7 w-7">
+            <Pencil className="h-3 w-3" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => onDelete(assessment)} className="h-7 w-7">
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
       </div>
-      
-      <div className="flex gap-0.5 ml-2">
-        <Button variant="ghost" size="icon" onClick={() => onEdit(assessment)} className="h-7 w-7">
-          <Pencil className="h-3 w-3" />
-        </Button>
-        <Button variant="ghost" size="icon" onClick={() => onDelete(assessment)} className="h-7 w-7">
-          <Trash2 className="h-3 w-3" />
-        </Button>
-      </div>
+
+      {/* Linked Tasks */}
+      {linkedTasks.length > 0 && (
+        <div className="mt-2 pt-2 border-t flex flex-wrap gap-1">
+          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+            <LinkIcon className="h-3 w-3" />
+            Linked:
+          </span>
+          {linkedTasks.map(task => (
+            <Badge key={task.id} variant="secondary" className="text-[10px] flex items-center gap-1">
+              {task.is_completed && <CheckCircle2 className="h-2 w-2 text-green-600" />}
+              {task.title}
+              <button 
+                onClick={() => onUnlinkTask(assessment, task.id)}
+                className="hover:text-destructive ml-0.5"
+              >
+                <X className="h-2 w-2" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

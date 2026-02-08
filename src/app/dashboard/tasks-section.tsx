@@ -41,6 +41,7 @@ import {
 } from 'lucide-react'
 import { format, isPast, isToday, isTomorrow } from 'date-fns'
 import { useRouter } from 'next/navigation'
+import { Assessment } from '@/lib/types'
 
 interface TasksSectionProps {
   initialTasks: Task[]
@@ -58,12 +59,27 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
   const [category, setCategory] = useState<Task['category']>('homework')
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [showCompleted, setShowCompleted] = useState(false)
+  const [assessments, setAssessments] = useState<Assessment[]>([])
+  const [linkedAssessmentId, setLinkedAssessmentId] = useState<string | null>(null)
 
   const router = useRouter()
 
   useEffect(() => {
-    setTasks(initialTasks)
-  }, [initialTasks])
+  fetchAssessments()
+}, [])
+
+const fetchAssessments = async () => {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  const { data } = await supabase
+    .from('assessments')
+    .select('*')
+    .eq('user_id', user?.id)
+    .order('date', { ascending: true })
+  
+  setAssessments(data || [])
+}
 
   const handleAdd = async () => {
     if (!title.trim()) return
