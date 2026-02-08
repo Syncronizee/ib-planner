@@ -135,14 +135,14 @@ export function CalendarView({ initialTasks, initialAssessments, subjects }: Cal
   }, [currentDate])
 
   // Get subject info
-  const getSubjectColor = (subjectId: string | null) => {
+  const getSubjectColor = (subjectId: string | null | undefined) => {
     if (!subjectId) return 'bg-gray-400'
     const subject = subjects.find(s => s.id === subjectId)
     if (!subject) return 'bg-gray-400'
     return SUBJECT_COLORS.find(c => c.name === subject.color)?.class || 'bg-gray-400'
   }
 
-  const getSubjectName = (subjectId: string | null) => {
+  const getSubjectName = (subjectId: string | null | undefined) => {
     if (!subjectId) return null
     return subjects.find(s => s.id === subjectId)?.name || null
   }
@@ -501,8 +501,8 @@ function EventCard({
   onToggle,
 }: {
   event: CalendarEvent
-  getSubjectColor: (id: string | null) => string
-  getSubjectName: (id: string | null) => string | null
+  getSubjectColor: (id: string | null | undefined) => string
+  getSubjectName: (id: string | null | undefined) => string | null
   onToggle: () => void
 }) {
   const subjectName = getSubjectName(event.subjectId)
