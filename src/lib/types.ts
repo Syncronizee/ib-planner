@@ -105,6 +105,8 @@ export type TimetableEntry = {
   id: string
   user_id: string
   subject_id: string | null
+  name: string | null
+  color: string | null
   day_of_week: number
   start_time: string
   end_time: string

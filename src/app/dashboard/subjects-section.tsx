@@ -7,7 +7,7 @@ import { SubjectCard } from '@/components/subjects/subject-card'
 import { SubjectDialog } from '@/components/subjects/subject-dialog'
 import { SubjectDetailModal } from '@/components/subjects/subject-detail-modal'
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { Plus, GraduationCap } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 interface SubjectsSectionProps {
@@ -88,25 +88,36 @@ export function SubjectsSection({ initialSubjects }: SubjectsSectionProps) {
   }
 
   return (
-    <section>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">My Subjects</h2>
-        <Button onClick={handleAdd} disabled={subjects.length >= 6}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Subject
+    <div className="p-5">
+      <div className="flex justify-between items-center mb-5">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-[var(--muted)] border border-[var(--border)]">
+            <GraduationCap className="h-5 w-5 text-[var(--accent)]" />
+          </div>
+          <h2 className="text-lg font-semibold text-[var(--card-fg)] uppercase tracking-wide">Subjects</h2>
+        </div>
+        <Button 
+          onClick={handleAdd} 
+          disabled={subjects.length >= 6} 
+          size="sm" 
+          className="btn-glass rounded-xl"
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          Add
         </Button>
       </div>
 
       {subjects.length === 0 ? (
-        <div className="text-center py-12 border-2 border-dashed rounded-lg">
-          <p className="text-muted-foreground mb-4">No subjects yet. Add your IB subjects to get started.</p>
-          <Button onClick={handleAdd}>
+        <div className="text-center py-12 border-2 border-dashed border-[var(--border)] rounded-2xl bg-[var(--muted)]/40">
+          <GraduationCap className="h-12 w-12 mx-auto text-[var(--muted-fg)] mb-4" />
+          <p className="text-[var(--muted-fg)] mb-4">No subjects yet</p>
+          <Button onClick={handleAdd} className="btn-glass rounded-xl">
             <Plus className="h-4 w-4 mr-2" />
             Add Your First Subject
           </Button>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-3">
           {subjects.map(subject => (
             <SubjectCard
               key={subject.id}
@@ -134,6 +145,6 @@ export function SubjectsSection({ initialSubjects }: SubjectsSectionProps) {
           onSubjectUpdate={handleSubjectUpdate}
         />
       )}
-    </section>
+    </div>
   )
 }

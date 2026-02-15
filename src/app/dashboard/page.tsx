@@ -5,8 +5,8 @@ import { SubjectsSection } from './subjects-section'
 import { TasksSection } from './tasks-section'
 import { CalendarPreview } from './calendar-preview'
 import { TimetableSection } from './timetable-section'
-import { Card, CardContent } from '@/components/ui/card'
 import { GraduationCap, Target, TrendingUp, CheckSquare } from 'lucide-react'
+import { formatDotoNumber } from '@/lib/utils'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -55,70 +55,100 @@ export default async function DashboardPage() {
   const pendingTasks = tasks?.filter(t => !t.is_completed).length || 0
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen app-bg">
       <Header email={user.email || ''} />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-8">
-        {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                <GraduationCap className="h-4 w-4" />
-                <span className="text-xs">Subjects</span>
-              </div>
-              <p className="text-2xl font-bold">{totalSubjects}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                <TrendingUp className="h-4 w-4" />
-                <span className="text-xs">Average Grade</span>
-              </div>
-              <p className="text-2xl font-bold">{averageGrade || '-'}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                <Target className="h-4 w-4" />
-                <span className="text-xs">Current Points</span>
-              </div>
-              <p className="text-2xl font-bold">{totalPoints}/42</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                <CheckSquare className="h-4 w-4" />
-                <span className="text-xs">Pending Tasks</span>
-              </div>
-              <p className="text-2xl font-bold">{pendingTasks}</p>
-            </CardContent>
-          </Card>
+      <main className="dashboard-main max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-6">
+        {/* Theme Demo Surface */}
+        <section className="token-card p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-semibold text-[var(--card-fg)]">Dashboard Overview</h1>
+              <p className="text-sm token-muted mt-1">
+                Active theme tokens now drive this page background, panels, borders, and actions.
+              </p>
+            </div>
+            <button className="token-btn-accent rounded-xl px-4 py-2 text-sm font-medium transition-smooth">
+              Focus Session
+            </button>
+          </div>
+          <div className="mt-4 border-t border-[var(--border)] pt-3 space-y-2">
+            <div className="token-row px-3 py-2 flex items-center justify-between text-sm">
+              <span>Upcoming deadlines</span>
+              <span className="token-muted">Prioritized by due date</span>
+            </div>
+            <div className="token-row px-3 py-2 flex items-center justify-between text-sm">
+              <span>Study consistency</span>
+              <span className="token-muted">Last 7 days trend</span>
+            </div>
+          </div>
+        </section>
+
+        {/* Stats Overview - Colored Glass Cards with Dotted Numbers */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="glass-card-colored glass-pink p-5 hover-lift">
+            <div className="flex items-center gap-2 token-muted mb-4">
+              <GraduationCap className="h-4 w-4" />
+              <span className="text-xs font-medium uppercase tracking-wider">Subjects</span>
+            </div>
+            <p className="dotted-number">{formatDotoNumber(totalSubjects)}</p>
+          </div>
+          
+          <div className="glass-card-colored glass-purple p-5 hover-lift">
+            <div className="flex items-center gap-2 token-muted mb-4">
+              <TrendingUp className="h-4 w-4" />
+              <span className="text-xs font-medium uppercase tracking-wider">Average</span>
+            </div>
+            <p className="dotted-number">{formatDotoNumber(averageGrade) || '-'}</p>
+          </div>
+          
+          <div className="glass-card-colored glass-cyan p-5 hover-lift">
+            <div className="flex items-center gap-2 token-muted mb-4">
+              <Target className="h-4 w-4" />
+              <span className="text-xs font-medium uppercase tracking-wider">Points</span>
+            </div>
+            <div className="flex items-baseline">
+              <span className="dotted-number">{formatDotoNumber(totalPoints)}</span>
+              <span className="dotted-divider">/42</span>
+            </div>
+          </div>
+          
+          <div className="glass-card-colored glass-orange p-5 hover-lift">
+            <div className="flex items-center gap-2 token-muted mb-4">
+              <CheckSquare className="h-4 w-4" />
+              <span className="text-xs font-medium uppercase tracking-wider">Tasks</span>
+            </div>
+            <p className="dotted-number">{formatDotoNumber(pendingTasks)}</p>
+          </div>
         </div>
 
-        {/* Subjects */}
-        <SubjectsSection initialSubjects={subjects || []} />
+        {/* Timetable - Full Width */}
+        <div className="glass-card hover-lift overflow-hidden">
+          <TimetableSection 
+            initialEntries={timetableEntries || []} 
+            subjects={subjects || []} 
+          />
+        </div>
 
-        {/* Timetable */}
-        <TimetableSection 
-          initialEntries={timetableEntries || []} 
-          subjects={subjects || []} 
-        />
+        {/* Calendar Preview - Full Width */}
+        <div className="glass-card hover-lift overflow-hidden">
+          <CalendarPreview 
+            tasks={tasks || []} 
+            assessments={assessments || []} 
+            subjects={subjects || []} 
+          />
+        </div>
 
-        {/* Tasks and Calendar Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <TasksSection initialTasks={tasks || []} subjects={subjects || []} />
+        {/* Subjects and Tasks Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Subjects - Left */}
+          <div className="glass-card hover-lift overflow-hidden">
+            <SubjectsSection initialSubjects={subjects || []} />
           </div>
-          <div>
-            <CalendarPreview 
-              tasks={tasks || []} 
-              assessments={assessments || []} 
-              subjects={subjects || []} 
-            />
+          
+          {/* Tasks - Right */}
+          <div className="glass-card hover-lift overflow-hidden">
+            <TasksSection initialTasks={tasks || []} subjects={subjects || []} />
           </div>
         </div>
       </main>

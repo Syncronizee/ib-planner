@@ -97,6 +97,7 @@ export function SubjectDetailModal({
   const averageScore = assessments.length > 0
     ? Math.round(assessments.filter(a => a.percentage !== null).reduce((sum, a) => sum + (a.percentage || 0), 0) / assessments.filter(a => a.percentage !== null).length)
     : null
+  const tabTriggerClass = "px-2 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-lg transition-all data-[state=active]:bg-white/20 data-[state=active]:text-white data-[state=active]:shadow-sm hover:bg-white/10 hover:text-white"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -151,40 +152,40 @@ export function SubjectDetailModal({
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
           {/* Tab List - Fixed */}
           <div className="px-4 sm:px-6 py-2 border-b bg-background shrink-0 overflow-x-auto">
-            <TabsList className="inline-flex h-8 sm:h-10 items-center justify-start rounded-lg bg-muted p-1">
+            <TabsList className="inline-flex h-auto min-h-10 items-center justify-start rounded-xl bg-white/10 border border-white/15 p-1.5 gap-1">
               <TabsTrigger 
                 value="grades" 
-                className="px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-md"
+                className={tabTriggerClass}
               >
                 Grades
               </TabsTrigger>
               <TabsTrigger 
                 value="assessments" 
-                className="px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-md"
+                className={tabTriggerClass}
               >
                 Assessments
               </TabsTrigger>
               <TabsTrigger 
                 value="homework" 
-                className="px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-md"
+                className={tabTriggerClass}
               >
                 Homework
               </TabsTrigger>
               <TabsTrigger 
                 value="syllabus" 
-                className="px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-md"
+                className={tabTriggerClass}
               >
                 Syllabus
               </TabsTrigger>
               <TabsTrigger 
                 value="resources" 
-                className="px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-md"
+                className={tabTriggerClass}
               >
                 Resources
               </TabsTrigger>
               <TabsTrigger 
                 value="weaknesses" 
-                className="px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-md flex items-center gap-1"
+                className={`${tabTriggerClass} flex items-center gap-1`}
               >
                 Weaknesses
                 {unresolvedWeaknesses > 0 && (
@@ -195,7 +196,7 @@ export function SubjectDetailModal({
               </TabsTrigger>
               <TabsTrigger 
                 value="errors" 
-                className="px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-md flex items-center gap-1"
+                className={`${tabTriggerClass} flex items-center gap-1`}
               >
                 Errors
                 {unresolvedErrors > 0 && (
@@ -206,7 +207,7 @@ export function SubjectDetailModal({
               </TabsTrigger>
               <TabsTrigger 
                 value="notes" 
-                className="px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap rounded-md"
+                className={tabTriggerClass}
               >
                 Notes
               </TabsTrigger>

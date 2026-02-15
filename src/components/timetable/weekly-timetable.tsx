@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Pencil, Trash2, Clock, MapPin } from 'lucide-react'
+import { Plus, Trash2, Clock, MapPin } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 interface WeeklyTimetableProps {
@@ -34,7 +34,10 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<TimetableEntry | null>(null)
   
+  const [entryType, setEntryType] = useState<'subject' | 'custom' | 'misc'>('subject')
   const [subjectId, setSubjectId] = useState<string>('')
+  const [entryName, setEntryName] = useState<string>('')
+  const [entryColor, setEntryColor] = useState<string>('slate')
   const [dayOfWeek, setDayOfWeek] = useState<number>(1)
   const [startTime, setStartTime] = useState('09:00')
   const [endTime, setEndTime] = useState('10:00')
@@ -46,7 +49,10 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
   const weekdays = DAYS_OF_WEEK.filter(d => d.value >= 1 && d.value <= 5)
 
   const resetForm = () => {
+    setEntryType('subject')
     setSubjectId('')
+    setEntryName('')
+    setEntryColor('slate')
     setDayOfWeek(1)
     setStartTime('09:00')
     setEndTime('10:00')
@@ -61,7 +67,16 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
 
   const handleEdit = (entry: TimetableEntry) => {
     setEditing(entry)
+    if (entry.subject_id) {
+      setEntryType('subject')
+    } else if (entry.color) {
+      setEntryType('misc')
+    } else {
+      setEntryType('custom')
+    }
     setSubjectId(entry.subject_id || '')
+    setEntryName(entry.name || '')
+    setEntryColor(entry.color || 'slate')
     setDayOfWeek(entry.day_of_week)
     setStartTime(entry.start_time.slice(0, 5))
     setEndTime(entry.end_time.slice(0, 5))
@@ -73,8 +88,11 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
+    const normalizedName = entryType === 'subject' ? null : entryName.trim() || null
     const entryData = {
-      subject_id: subjectId || null,
+      subject_id: entryType === 'subject' ? subjectId || null : null,
+      name: normalizedName,
+      color: entryType === 'misc' ? entryColor : null,
       day_of_week: dayOfWeek,
       start_time: startTime,
       end_time: endTime,
@@ -129,10 +147,22 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
     return subjects.find(s => s.id === entry.subject_id)
   }
 
+  const getEntryLabel = (entry: TimetableEntry) => {
+    const subject = getSubjectForEntry(entry)
+    if (subject) return subject.name
+    if (entry.name) return entry.name
+    return 'Untitled'
+  }
+
   const getColorClass = (entry: TimetableEntry) => {
     const subject = getSubjectForEntry(entry)
-    if (!subject) return 'bg-gray-200 dark:bg-gray-700'
-    return SUBJECT_COLORS.find(c => c.name === subject.color)?.class || 'bg-gray-200'
+    if (subject) {
+      return SUBJECT_COLORS.find(c => c.name === subject.color)?.class || 'bg-gray-500'
+    }
+    if (entry.color) {
+      return SUBJECT_COLORS.find(c => c.name === entry.color)?.class || 'bg-gray-500'
+    }
+    return 'bg-gray-500'
   }
 
   const formatTime = (time: string) => {
@@ -185,7 +215,6 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
                   </div>
                   <div className="space-y-2 min-h-[200px]">
                     {getEntriesForDay(day.value).map(entry => {
-                      const subject = getSubjectForEntry(entry)
                       return (
                         <div
                           key={entry.id}
@@ -206,7 +235,7 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
                             </Button>
                           </div>
                           <p className="font-medium text-xs truncate pr-6">
-                            {subject?.name || 'No Subject'}
+                            {getEntryLabel(entry)}
                           </p>
                           <p className="text-[10px] opacity-90 mt-1">
                             {formatTime(entry.start_time)} - {formatTime(entry.end_time)}
@@ -229,7 +258,7 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editing ? 'Edit Class' : 'Add Class'}</DialogTitle>
             <DialogDescription className="sr-only">
@@ -238,23 +267,67 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Subject</Label>
-              <Select value={subjectId} onValueChange={setSubjectId}>
+              <Label>Class Type</Label>
+              <Select value={entryType} onValueChange={(value) => setEntryType(value as 'subject' | 'custom' | 'misc')}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a subject" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {subjects.map(subject => (
-                    <SelectItem key={subject.id} value={subject.id}>
-                      <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${SUBJECT_COLORS.find(c => c.name === subject.color)?.class}`} />
-                        {subject.name}
-                      </div>
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="subject">Linked Subject Class</SelectItem>
+                  <SelectItem value="custom">Unlinked Class (e.g. TOK)</SelectItem>
+                  <SelectItem value="misc">Miscellaneous</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {entryType === 'subject' && (
+              <div className="space-y-2">
+                <Label>Subject</Label>
+                <Select value={subjectId} onValueChange={setSubjectId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a subject" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subjects.map(subject => (
+                      <SelectItem key={subject.id} value={subject.id}>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${SUBJECT_COLORS.find(c => c.name === subject.color)?.class}`} />
+                          {subject.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {entryType !== 'subject' && (
+              <div className="space-y-2">
+                <Label>Name</Label>
+                <Input
+                  placeholder={entryType === 'misc' ? 'e.g. Miscellaneous Class' : 'e.g. TOK Session'}
+                  value={entryName}
+                  onChange={(e) => setEntryName(e.target.value)}
+                />
+              </div>
+            )}
+
+            {entryType === 'misc' && (
+              <div className="space-y-2">
+                <Label>Color</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  {SUBJECT_COLORS.map(color => (
+                    <button
+                      key={color.name}
+                      type="button"
+                      onClick={() => setEntryColor(color.name)}
+                      className={`h-8 rounded-md ${color.class} ${entryColor === color.name ? 'ring-2 ring-white/90 ring-offset-2 ring-offset-background' : ''}`}
+                      aria-label={color.name}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label>Day</Label>
@@ -301,7 +374,15 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={handleSave} disabled={!subjectId}>Save</Button>
+              <Button
+                onClick={handleSave}
+                disabled={
+                  (entryType === 'subject' && !subjectId) ||
+                  (entryType !== 'subject' && !entryName.trim())
+                }
+              >
+                Save
+              </Button>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             </div>
           </div>

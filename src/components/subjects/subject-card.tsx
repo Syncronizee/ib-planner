@@ -1,10 +1,10 @@
 'use client'
 
-import { Subject, SUBJECT_COLORS } from '@/lib/types'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Subject } from '@/lib/types'
 import { Button } from '@/components/ui/button'
-import { Pencil, Trash2, Target, TrendingUp } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Pencil, Trash2, ChevronRight } from 'lucide-react'
+import { formatDotoNumber } from '@/lib/utils'
 
 interface SubjectCardProps {
   subject: Subject
@@ -14,68 +14,76 @@ interface SubjectCardProps {
 }
 
 export function SubjectCard({ subject, onEdit, onDelete, onClick }: SubjectCardProps) {
-  const colorClass = SUBJECT_COLORS.find(c => c.name === subject.color)?.class || 'bg-slate-500'
-  const confidenceLabels = ['', 'Struggling', 'Needs Work', 'Okay', 'Good', 'Confident']
+  const confidenceValue = Math.max(0, Math.min(5, subject.confidence ?? 0))
 
   return (
-    <Card 
-      className="relative cursor-pointer hover:shadow-md transition-shadow"
+    <div
       onClick={() => onClick(subject)}
+      className="subject-tile group relative p-4 rounded-2xl bg-[var(--muted)]/45 backdrop-blur-xl border border-[var(--border)] hover:border-[var(--ring)] transition-smooth cursor-pointer hover-lift shadow-[0_8px_28px_rgba(0,0,0,0.2)]"
     >
-      <div className={`absolute top-0 left-0 w-1 h-full rounded-l-lg ${colorClass}`} />
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="text-lg">{subject.name}</CardTitle>
-            <Badge variant="secondary" className="mt-1">{subject.level}</Badge>
+      <div className="flex items-center gap-4">
+        {/* Grade Circle with Dotted Number */}
+        <div className="w-16 h-16 rounded-xl bg-[var(--card)]/70 backdrop-blur flex items-center justify-center shadow-lg border border-[var(--border)]">
+          <span className="dotted-number-md">{formatDotoNumber(subject.current_grade)}</span>
+        </div>
+        
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-[var(--card-fg)] truncate">{subject.name}</h3>
+            <Badge className="bg-[var(--muted)] text-[var(--muted-fg)] border-0 text-[10px]">
+              {subject.level}
+            </Badge>
           </div>
-          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" onClick={() => onEdit(subject)}>
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => onDelete(subject)}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
+          <div className="flex items-center gap-3 mt-1.5 text-sm text-[var(--muted-fg)]">
+            <span className="flex items-center gap-1">
+              Target: <span className="dotted-number-xs">{formatDotoNumber(subject.target_grade)}</span>
+            </span>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-[11px] uppercase tracking-wide text-[var(--muted-fg)]">Confidence</span>
+            <div className="flex-1 flex gap-1">
+              {Array.from({ length: 5 }, (_, idx) => (
+                <div
+                  key={idx}
+                  className={`h-1.5 flex-1 rounded-full ${
+                    idx < confidenceValue ? 'bg-[var(--accent)]' : 'bg-[var(--border)]'
+                  }`}
+                />
+              ))}
+            </div>
+            <span className="text-[11px] text-[var(--muted-fg)] tabular-nums">{confidenceValue}/5</span>
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {/* Grades row */}
-        {(subject.current_grade || subject.target_grade) && (
-          <div className="flex items-center gap-4 text-sm">
-            {subject.current_grade && (
-              <div className="flex items-center gap-1">
-                <TrendingUp className="h-3 w-3 text-muted-foreground" />
-                <span className="font-medium">{subject.current_grade}</span>
-              </div>
-            )}
-            {subject.target_grade && (
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <Target className="h-3 w-3" />
-                <span>{subject.target_grade}</span>
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* Confidence bar */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Confidence:</span>
-          <div className="flex gap-1 flex-1">
-            {[1, 2, 3, 4, 5].map((level) => (
-              <div
-                key={level}
-                className={`flex-1 h-2 rounded-sm ${
-                  level <= subject.confidence ? colorClass : 'bg-muted'
-                }`}
-              />
-            ))}
-          </div>
-          <span className="text-xs text-muted-foreground">
-            {confidenceLabels[subject.confidence]}
-          </span>
+        {/* Actions */}
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-[var(--muted-fg)] hover:text-[var(--card-fg)] hover:bg-[var(--muted)]"
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit(subject)
+            }}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-[var(--muted-fg)] hover:text-red-500 hover:bg-red-500/10"
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(subject)
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+        
+        <ChevronRight className="h-5 w-5 text-[var(--muted-fg)] group-hover:text-[var(--card-fg)] transition-colors" />
+      </div>
+    </div>
   )
 }

@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from 'react'
 import { Task, Assessment, Subject, SUBJECT_COLORS } from '@/lib/types'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -39,7 +38,6 @@ export function CalendarPreview({ tasks, assessments, subjects }: CalendarPrevie
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
-  // Combine events
   const events = useMemo(() => {
     const allEvents: Array<{
       id: string
@@ -79,12 +77,10 @@ export function CalendarPreview({ tasks, assessments, subjects }: CalendarPrevie
     return allEvents
   }, [tasks, assessments])
 
-  // Get events for a date
   const getEventsForDate = (date: Date) => {
     return events.filter(e => isSameDay(parseISO(e.date), date) && !e.isCompleted)
   }
 
-  // Calendar days
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(currentDate)
     const monthEnd = endOfMonth(currentDate)
@@ -93,10 +89,8 @@ export function CalendarPreview({ tasks, assessments, subjects }: CalendarPrevie
     return eachDayOfInterval({ start: calendarStart, end: calendarEnd })
   }, [currentDate])
 
-  // Selected date events
   const selectedDateEvents = getEventsForDate(selectedDate)
 
-  // Get subject color
   const getSubjectColor = (subjectId: string | null) => {
     if (!subjectId) return 'bg-gray-400'
     const subject = subjects.find(s => s.id === subjectId)
@@ -104,62 +98,48 @@ export function CalendarPreview({ tasks, assessments, subjects }: CalendarPrevie
     return SUBJECT_COLORS.find(c => c.name === subject.color)?.class || 'bg-gray-400'
   }
 
-  const getSubjectName = (subjectId: string | null) => {
-    if (!subjectId) return null
-    return subjects.find(s => s.id === subjectId)?.name || null
-  }
-
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <CalendarIcon className="h-5 w-5" />
-            Calendar
-          </CardTitle>
-          <Link href="/dashboard/calendar">
-            <Button variant="ghost" size="sm" className="text-xs">
-              View Full
-              <ArrowRight className="h-3 w-3 ml-1" />
-            </Button>
-          </Link>
+    <div className="p-5">
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-[var(--muted)] border border-[var(--border)]">
+            <CalendarIcon className="h-5 w-5 text-[var(--accent)]" />
+          </div>
+          <h2 className="text-lg font-semibold text-[var(--card-fg)] uppercase tracking-wide">Calendar</h2>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Mini Calendar */}
-        <div>
+        <Link href="/dashboard/calendar">
+          <Button variant="ghost" size="sm" className="text-[var(--muted-fg)] hover:text-[var(--card-fg)] hover:bg-[var(--muted)] rounded-xl">
+            View Full
+            <ArrowRight className="h-4 w-4 ml-1" />
+          </Button>
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Calendar Grid */}
+        <div className="lg:col-span-2">
           {/* Month Navigation */}
-          <div className="flex items-center justify-between mb-3">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-7 w-7"
-              onClick={() => setCurrentDate(subMonths(currentDate, 1))}
-            >
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-[var(--muted-fg)] hover:text-[var(--card-fg)] hover:bg-[var(--muted)] rounded-xl" onClick={() => setCurrentDate(subMonths(currentDate, 1))}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm font-medium">{format(currentDate, 'MMMM yyyy')}</span>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-7 w-7"
-              onClick={() => setCurrentDate(addMonths(currentDate, 1))}
-            >
+            <span className="font-semibold text-[var(--card-fg)]">{format(currentDate, 'MMMM yyyy')}</span>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-[var(--muted-fg)] hover:text-[var(--card-fg)] hover:bg-[var(--muted)] rounded-xl" onClick={() => setCurrentDate(addMonths(currentDate, 1))}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
 
           {/* Day Headers */}
-          <div className="grid grid-cols-7 mb-1">
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-              <div key={i} className="text-center text-[10px] font-medium text-muted-foreground py-1">
+          <div className="grid grid-cols-7 mb-2">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
+              <div key={i} className="text-center text-xs font-medium text-[var(--muted-fg)] py-2 uppercase tracking-wide">
                 {day}
               </div>
             ))}
           </div>
 
           {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-0.5">
+          <div className="grid grid-cols-7 gap-1">
             {calendarDays.map(day => {
               const dayEvents = getEventsForDate(day)
               const isCurrentMonth = isSameMonth(day, currentDate)
@@ -171,18 +151,18 @@ export function CalendarPreview({ tasks, assessments, subjects }: CalendarPrevie
                   key={day.toISOString()}
                   onClick={() => setSelectedDate(day)}
                   className={`
-                    aspect-square flex flex-col items-center justify-center rounded-md text-xs relative
+                    aspect-square p-1 flex flex-col items-center justify-start rounded-xl text-sm relative transition-smooth
                     ${!isCurrentMonth ? 'opacity-30' : ''}
-                    ${isToday(day) ? 'bg-primary text-primary-foreground font-bold' : ''}
-                    ${isSelected && !isToday(day) ? 'bg-muted ring-1 ring-primary' : ''}
-                    ${!isSelected && !isToday(day) ? 'hover:bg-muted' : ''}
+                    ${isToday(day) ? 'bg-[var(--accent)] text-[var(--accent-fg)] font-bold' : ''}
+                    ${isSelected && !isToday(day) ? 'bg-[var(--muted)] ring-2 ring-[var(--ring)]' : ''}
+                    ${!isSelected && !isToday(day) ? 'text-[var(--card-fg)] hover:bg-[var(--muted)]' : ''}
                   `}
                 >
-                  {format(day, 'd')}
+                  <span className="mt-1">{format(day, 'd')}</span>
                   {hasEvents && (
-                    <div className="absolute bottom-0.5 flex gap-0.5">
-                      {dayEvents.slice(0, 3).map((_, i) => (
-                        <div key={i} className={`w-1 h-1 rounded-full ${isToday(day) ? 'bg-primary-foreground' : 'bg-primary'}`} />
+                    <div className="absolute bottom-1 flex gap-0.5">
+                      {dayEvents.slice(0, 3).map((e, i) => (
+                        <div key={i} className={`w-1.5 h-1.5 rounded-full ${isToday(day) ? 'bg-[var(--accent-fg)]' : 'bg-[var(--accent)]'}`} />
                       ))}
                     </div>
                   )}
@@ -193,43 +173,35 @@ export function CalendarPreview({ tasks, assessments, subjects }: CalendarPrevie
         </div>
 
         {/* Selected Date Events */}
-        <div className="border-t pt-3">
-          <h4 className="text-xs font-medium text-muted-foreground mb-2">
+        <div className="bg-[var(--muted)]/45 rounded-2xl p-4 border border-[var(--border)]">
+          <h4 className="font-medium text-[var(--card-fg)] mb-3">
             {isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEE, MMM d')}
-            {selectedDateEvents.length > 0 && ` (${selectedDateEvents.length})`}
+            {selectedDateEvents.length > 0 && (
+              <Badge className="ml-2 bg-[var(--accent)] text-[var(--accent-fg)] border-0 text-xs">{selectedDateEvents.length}</Badge>
+            )}
           </h4>
           
           {selectedDateEvents.length > 0 ? (
-            <div className="space-y-1.5">
-              {selectedDateEvents.slice(0, 4).map(event => (
-                <div
-                  key={event.id}
-                  className="flex items-center gap-2 p-1.5 rounded-md bg-muted/50 text-xs"
-                >
+            <div className="space-y-2">
+              {selectedDateEvents.slice(0, 5).map(event => (
+                <div key={event.id} className="flex items-center gap-2 p-2 rounded-xl bg-[var(--card)] text-sm border border-[var(--border)]">
                   {event.type === 'assessment' ? (
-                    <FileText className="h-3 w-3 text-red-500 shrink-0" />
+                    <FileText className="h-4 w-4 text-red-400 shrink-0" />
                   ) : (
-                    <BookOpen className="h-3 w-3 text-blue-500 shrink-0" />
+                    <BookOpen className="h-4 w-4 text-blue-400 shrink-0" />
                   )}
-                  <span className="truncate flex-1">{event.title}</span>
+                  <span className="truncate flex-1 text-[var(--card-fg)]">{event.title}</span>
                   {event.subjectId && (
                     <div className={`w-2 h-2 rounded-full shrink-0 ${getSubjectColor(event.subjectId)}`} />
                   )}
                 </div>
               ))}
-              {selectedDateEvents.length > 4 && (
-                <p className="text-[10px] text-muted-foreground text-center">
-                  +{selectedDateEvents.length - 4} more
-                </p>
-              )}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground text-center py-2">
-              No events
-            </p>
+            <p className="text-sm text-[var(--muted-fg)] text-center py-4">No events scheduled</p>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
