@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import Image from 'next/image'
 import { Subject, Note, SyllabusTopic } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { DrawingCanvas } from '@/components/notes/drawing-canvas'
@@ -32,7 +33,6 @@ import {
   Pencil,
   Trash2,
   Link as LinkIcon,
-  Calendar,
   Image as ImageIcon,
 } from 'lucide-react'
 import { format } from 'date-fns'
@@ -40,10 +40,9 @@ import { useRouter } from 'next/navigation'
 
 interface NotesTabProps {
   subject: Subject
-  onSubjectUpdate: (subject: Subject) => void
 }
 
-export function NotesTab({ subject, onSubjectUpdate }: NotesTabProps) {
+export function NotesTab({ subject }: NotesTabProps) {
   const [notes, setNotes] = useState<Note[]>([])
   const [topics, setTopics] = useState<SyllabusTopic[]>([])
   const [loading, setLoading] = useState(true)
@@ -65,11 +64,7 @@ export function NotesTab({ subject, onSubjectUpdate }: NotesTabProps) {
 
   const router = useRouter()
 
-  useEffect(() => {
-    fetchData()
-  }, [subject.id])
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
     const supabase = createClient()
 
@@ -89,7 +84,12 @@ export function NotesTab({ subject, onSubjectUpdate }: NotesTabProps) {
     setNotes(notesData || [])
     setTopics(topicsData || [])
     setLoading(false)
-  }
+  }, [subject.id])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData()
+  }, [fetchData])
 
   const handleCreateNote = () => {
     setNewNoteTitle('')
@@ -111,7 +111,7 @@ export function NotesTab({ subject, onSubjectUpdate }: NotesTabProps) {
     setCanvasOpen(true)
   }
 
-  const handleSaveNote = async (drawingData: any, previewImage: string) => {
+  const handleSaveNote = async (drawingData: unknown, previewImage: string) => {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -173,18 +173,6 @@ export function NotesTab({ subject, onSubjectUpdate }: NotesTabProps) {
       setNotes(notes.filter(n => n.id !== deleteNote.id))
     }
     setDeleteNote(null)
-  }
-
-  const getTopicName = (topicId: string | null) => {
-    if (!topicId) return null
-    const topic = topics.find(t => t.id === topicId)
-    return topic ? topic.topic_name : null
-  }
-
-  const getTopicUnit = (topicId: string | null) => {
-    if (!topicId) return null
-    const topic = topics.find(t => t.id === topicId)
-    return topic?.unit_number || null
   }
 
   // Group notes by topic
@@ -347,7 +335,7 @@ export function NotesTab({ subject, onSubjectUpdate }: NotesTabProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Note</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{deleteNote?.title}"? This action cannot be undone.
+              Are you sure you want to delete &quot;{deleteNote?.title}&quot;? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -369,9 +357,12 @@ export function NotesTab({ subject, onSubjectUpdate }: NotesTabProps) {
           onClick={() => setPreviewNote(null)}
         >
           <div className="relative max-w-4xl max-h-full">
-            <img
+            <Image
               src={previewNote.content.preview}
               alt={previewNote.title}
+              width={1600}
+              height={900}
+              unoptimized
               className="max-w-full max-h-[80vh] object-contain rounded-lg"
             />
             <div className="absolute bottom-4 left-4 right-4 bg-black/70 text-white p-3 rounded-lg">
@@ -422,6 +413,7 @@ function NoteCard({
   onPreview: () => void
 }) {
   const hasPreview = note.content?.preview
+  const previewSrc = note.content?.preview ?? ''
 
   return (
     <Card className="overflow-hidden group cursor-pointer hover:shadow-md transition-shadow">
@@ -432,9 +424,12 @@ function NoteCard({
           onClick={onPreview}
         >
           {hasPreview ? (
-            <img
-              src={note.content.preview}
+            <Image
+              src={previewSrc}
               alt={note.title}
+              width={640}
+              height={360}
+              unoptimized
               className="w-full h-full object-cover"
             />
           ) : (
@@ -481,7 +476,7 @@ function NoteCard({
         {/* Info */}
         <div className="p-3">
           <p className="font-medium text-sm truncate">{note.title}</p>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             {format(new Date(note.updated_at), 'MMM d, yyyy')}
           </p>
         </div>

@@ -19,11 +19,11 @@ export function SubjectCard({ subject, onEdit, onDelete, onClick }: SubjectCardP
   return (
     <div
       onClick={() => onClick(subject)}
-      className="subject-tile group relative p-4 rounded-2xl bg-[var(--muted)]/45 backdrop-blur-xl border border-[var(--border)] hover:border-[var(--ring)] transition-smooth cursor-pointer hover-lift shadow-[0_8px_28px_rgba(0,0,0,0.2)]"
+      className="subject-tile group relative p-4 rounded-2xl bg-[var(--muted)] backdrop-blur-xl border border-[var(--border)] hover:border-[var(--ring)] transition-smooth cursor-pointer hover-lift shadow-[0_8px_28px_rgba(0,0,0,0.2)]"
     >
       <div className="flex items-center gap-4">
         {/* Grade Circle with Dotted Number */}
-        <div className="w-16 h-16 rounded-xl bg-[var(--card)]/70 backdrop-blur flex items-center justify-center shadow-lg border border-[var(--border)]">
+        <div className="w-16 h-16 rounded-xl bg-[var(--card)] backdrop-blur flex items-center justify-center shadow-lg border border-[var(--border)]">
           <span className="dotted-number-md">{formatDotoNumber(subject.current_grade)}</span>
         </div>
         

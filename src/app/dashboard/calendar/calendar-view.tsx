@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Task, Assessment, Subject, TASK_CATEGORIES, SUBJECT_COLORS } from '@/lib/types'
+import { useMemo, useState } from 'react'
+import { Task, Assessment, Subject, TASK_CATEGORIES, SUBJECT_COLORS, ScheduledStudySession, SchoolEvent, EnergyLevel, SessionType } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -24,6 +24,9 @@ import {
   List,
   Grid3X3,
   AlertCircle,
+  CalendarClock,
+  Building2,
+  Plus,
 } from 'lucide-react'
 import {
   format,
@@ -41,35 +44,75 @@ import {
   isPast,
 } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
+import { useSearchParams } from 'next/navigation'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { getTaskBankSuggestions } from '@/lib/study-task-bank'
 
 interface CalendarViewProps {
   initialTasks: Task[]
   initialAssessments: Assessment[]
   subjects: Subject[]
+  initialScheduledSessions: ScheduledStudySession[]
+  initialSchoolEvents: SchoolEvent[]
 }
 
 type CalendarEvent = {
   id: string
   title: string
   date: string
-  type: 'task' | 'assessment'
+  type: 'task' | 'assessment' | 'scheduled_session' | 'school_event'
   category?: string
   subjectId?: string | null
   isCompleted: boolean
   priority?: string
   percentage?: number | null
-  original: Task | Assessment
+  original: Task | Assessment | ScheduledStudySession | SchoolEvent
 }
 
-export function CalendarView({ initialTasks, initialAssessments, subjects }: CalendarViewProps) {
+export function CalendarView({
+  initialTasks,
+  initialAssessments,
+  subjects,
+  initialScheduledSessions,
+  initialSchoolEvents,
+}: CalendarViewProps) {
+  const searchParams = useSearchParams()
+  const intent = searchParams.get('intent')
+  const initialSubjectFromQuery = searchParams.get('subject')
+  const initialObjectiveFromQuery = searchParams.get('objective')
+  const initialEventDateFromQuery = searchParams.get('date')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [assessments, setAssessments] = useState<Assessment[]>(initialAssessments)
+  const [scheduledSessions, setScheduledSessions] = useState<ScheduledStudySession[]>(initialScheduledSessions)
+  const [schoolEvents, setSchoolEvents] = useState<SchoolEvent[]>(initialSchoolEvents)
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date())
   const [viewMode, setViewMode] = useState<'month' | 'list'>('month')
   const [filterSubject, setFilterSubject] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
   const [showCompleted, setShowCompleted] = useState(true)
+  const [eventDialogOpen, setEventDialogOpen] = useState(intent === 'school-event')
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(intent === 'schedule-study')
+  const [eventTitle, setEventTitle] = useState('')
+  const [eventDate, setEventDate] = useState(initialEventDateFromQuery || format(new Date(), 'yyyy-MM-dd'))
+  const [eventLocation, setEventLocation] = useState('')
+  const [eventDescription, setEventDescription] = useState('')
+  const [scheduleSubjectId, setScheduleSubjectId] = useState(
+    initialSubjectFromQuery && subjects.some((item) => item.id === initialSubjectFromQuery)
+      ? initialSubjectFromQuery
+      : ''
+  )
+  const [scheduleTaskId, setScheduleTaskId] = useState('')
+  const [scheduleEnergy, setScheduleEnergy] = useState<EnergyLevel>('medium')
+  const [scheduleSessionType, setScheduleSessionType] = useState<SessionType>('practice')
+  const [scheduleDuration, setScheduleDuration] = useState(45)
+  const [scheduleDateTime, setScheduleDateTime] = useState('')
+  const [scheduleSuggestion, setScheduleSuggestion] = useState(initialObjectiveFromQuery || '')
 
   // Combine tasks and assessments into calendar events
   const events = useMemo(() => {
@@ -106,16 +149,43 @@ export function CalendarView({ initialTasks, initialAssessments, subjects }: Cal
       }
     })
 
+    scheduledSessions.forEach((session) => {
+      if (session.status === 'scheduled') {
+        allEvents.push({
+          id: session.id,
+          title: session.task_suggestion || 'Scheduled study session',
+          date: session.scheduled_for,
+          type: 'scheduled_session',
+          subjectId: session.subject_id,
+          isCompleted: false,
+          original: session,
+        })
+      }
+    })
+
+    schoolEvents.forEach((event) => {
+      allEvents.push({
+        id: event.id,
+        title: event.title,
+        date: event.event_date,
+        type: 'school_event',
+        isCompleted: false,
+        original: event,
+      })
+    })
+
     return allEvents
-  }, [tasks, assessments])
+  }, [tasks, assessments, scheduledSessions, schoolEvents])
 
   // Filter events
   const filteredEvents = useMemo(() => {
     return events.filter(event => {
-      if (!showCompleted && event.isCompleted) return false
+      if ((event.type === 'task' || event.type === 'assessment') && !showCompleted && event.isCompleted) return false
       if (filterSubject !== 'all' && event.subjectId !== filterSubject) return false
       if (filterType === 'tasks' && event.type !== 'task') return false
       if (filterType === 'assessments' && event.type !== 'assessment') return false
+      if (filterType === 'scheduled' && event.type !== 'scheduled_session') return false
+      if (filterType === 'school' && event.type !== 'school_event') return false
       return true
     })
   }, [events, showCompleted, filterSubject, filterType])
@@ -146,6 +216,16 @@ export function CalendarView({ initialTasks, initialAssessments, subjects }: Cal
     if (!subjectId) return null
     return subjects.find(s => s.id === subjectId)?.name || null
   }
+
+  const scheduleTaskOptions = useMemo(() => {
+    if (!scheduleSubjectId) return tasks.filter((task) => !task.is_completed)
+    return tasks.filter((task) => !task.is_completed && task.subject_id === scheduleSubjectId)
+  }, [tasks, scheduleSubjectId])
+
+  const scheduleSuggestions = useMemo(
+    () => getTaskBankSuggestions(scheduleEnergy, 4),
+    [scheduleEnergy]
+  )
 
   // Handle task toggle
   const handleToggleTask = async (task: Task) => {
@@ -199,6 +279,70 @@ export function CalendarView({ initialTasks, initialAssessments, subjects }: Cal
     }
   }
 
+  const handleCreateSchoolEvent = async () => {
+    if (!eventTitle.trim() || !eventDate) return
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { data, error } = await supabase
+      .from('school_events')
+      .insert({
+        user_id: user.id,
+        title: eventTitle.trim(),
+        event_date: eventDate,
+        location: eventLocation.trim() || null,
+        description: eventDescription.trim() || null,
+      })
+      .select()
+      .single()
+
+    if (!error && data) {
+      setSchoolEvents((prev) => [...prev, data].sort((a, b) => a.event_date.localeCompare(b.event_date)))
+      setEventDialogOpen(false)
+      setEventTitle('')
+      setEventLocation('')
+      setEventDescription('')
+    }
+  }
+
+  const handleScheduleStudySession = async () => {
+    if (!scheduleSubjectId || !scheduleDateTime) return
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const fallbackSuggestion = scheduleTaskId ? null : (scheduleSuggestion.trim() || scheduleSuggestions[0] || null)
+
+    const { data, error } = await supabase
+      .from('scheduled_study_sessions')
+      .insert({
+        user_id: user.id,
+        subject_id: scheduleSubjectId,
+        task_id: scheduleTaskId || null,
+        task_suggestion: fallbackSuggestion,
+        duration_goal_minutes: scheduleDuration,
+        energy_level: scheduleEnergy,
+        session_type: scheduleSessionType,
+        scheduled_for: new Date(scheduleDateTime).toISOString(),
+        status: 'scheduled',
+      })
+      .select()
+      .single()
+
+    if (!error && data) {
+      setScheduledSessions((prev) => [...prev, data].sort((a, b) => a.scheduled_for.localeCompare(b.scheduled_for)))
+      setScheduleDialogOpen(false)
+      setScheduleSubjectId('')
+      setScheduleTaskId('')
+      setScheduleSuggestion('')
+      setScheduleDateTime('')
+      setScheduleDuration(45)
+      setScheduleEnergy('medium')
+      setScheduleSessionType('practice')
+    }
+  }
+
   // Get selected date events
   const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : []
 
@@ -228,6 +372,15 @@ export function CalendarView({ initialTasks, initialAssessments, subjects }: Cal
         </div>
 
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setScheduleDialogOpen(true)}>
+            <CalendarClock className="h-4 w-4 mr-1.5" />
+            Schedule Study
+          </Button>
+          <Button variant="outline" onClick={() => setEventDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-1.5" />
+            School Event
+          </Button>
+
           {/* View Toggle */}
           <div className="flex border rounded-lg">
             <Button
@@ -279,6 +432,8 @@ export function CalendarView({ initialTasks, initialAssessments, subjects }: Cal
             <SelectItem value="all">All Types</SelectItem>
             <SelectItem value="tasks">Tasks Only</SelectItem>
             <SelectItem value="assessments">Assessments Only</SelectItem>
+            <SelectItem value="scheduled">Scheduled Study</SelectItem>
+            <SelectItem value="school">School Events</SelectItem>
           </SelectContent>
         </Select>
 
@@ -360,13 +515,21 @@ export function CalendarView({ initialTasks, initialAssessments, subjects }: Cal
                             className={`
                               text-xs px-1.5 py-0.5 rounded truncate flex items-center gap-1
                               ${event.type === 'assessment' 
-                                ? 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300' 
-                                : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'}
+                                ? 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300'
+                                : event.type === 'task'
+                                  ? 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                                  : event.type === 'scheduled_session'
+                                    ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                                    : 'bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300'}
                               ${event.isCompleted ? 'opacity-50 line-through' : ''}
                             `}
                           >
                             {event.type === 'assessment' ? (
                               <FileText className="h-3 w-3 shrink-0" />
+                            ) : event.type === 'scheduled_session' ? (
+                              <CalendarClock className="h-3 w-3 shrink-0" />
+                            ) : event.type === 'school_event' ? (
+                              <Building2 className="h-3 w-3 shrink-0" />
                             ) : (
                               <BookOpen className="h-3 w-3 shrink-0" />
                             )}
@@ -420,7 +583,7 @@ export function CalendarView({ initialTasks, initialAssessments, subjects }: Cal
                         onToggle={() => {
                           if (event.type === 'task') {
                             handleToggleTask(event.original as Task)
-                          } else {
+                          } else if (event.type === 'assessment') {
                             handleToggleAssessment(event.original as Assessment)
                           }
                         }}
@@ -471,7 +634,7 @@ export function CalendarView({ initialTasks, initialAssessments, subjects }: Cal
                           onToggle={() => {
                             if (event.type === 'task') {
                               handleToggleTask(event.original as Task)
-                            } else {
+                            } else if (event.type === 'assessment') {
                               handleToggleAssessment(event.original as Assessment)
                             }
                           }}
@@ -489,6 +652,178 @@ export function CalendarView({ initialTasks, initialAssessments, subjects }: Cal
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={eventDialogOpen} onOpenChange={setEventDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add School Event</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-sm text-muted-foreground">Title</label>
+              <input
+                value={eventTitle}
+                onChange={(e) => setEventTitle(e.target.value)}
+                placeholder="e.g. School assembly"
+                className="w-full h-9 rounded-md border bg-background px-3 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm text-muted-foreground">Date</label>
+              <input
+                type="date"
+                value={eventDate}
+                onChange={(e) => setEventDate(e.target.value)}
+                className="w-full h-9 rounded-md border bg-background px-3 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm text-muted-foreground">Location (optional)</label>
+              <input
+                value={eventLocation}
+                onChange={(e) => setEventLocation(e.target.value)}
+                placeholder="e.g. Auditorium"
+                className="w-full h-9 rounded-md border bg-background px-3 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm text-muted-foreground">Description (optional)</label>
+              <textarea
+                value={eventDescription}
+                onChange={(e) => setEventDescription(e.target.value)}
+                rows={3}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <Button onClick={handleCreateSchoolEvent} disabled={!eventTitle.trim() || !eventDate} className="w-full">
+              Save Event
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Schedule Study Session</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-sm text-muted-foreground">Subject</label>
+              <Select value={scheduleSubjectId || 'none'} onValueChange={(value) => {
+                setScheduleSubjectId(value === 'none' ? '' : value)
+                setScheduleTaskId('')
+              }}>
+                <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select subject</SelectItem>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.id} value={subject.id}>{subject.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-sm text-muted-foreground">Energy</label>
+                <Select value={scheduleEnergy} onValueChange={(value: EnergyLevel) => setScheduleEnergy(value)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm text-muted-foreground">Type</label>
+                <Select value={scheduleSessionType} onValueChange={(value: SessionType) => setScheduleSessionType(value)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new_content">New Content</SelectItem>
+                    <SelectItem value="practice">Practice</SelectItem>
+                    <SelectItem value="review">Review</SelectItem>
+                    <SelectItem value="passive">Passive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm text-muted-foreground">Task (optional)</label>
+              <Select
+                value={scheduleTaskId || 'none'}
+                onValueChange={(value) => {
+                  const next = value === 'none' ? '' : value
+                  setScheduleTaskId(next)
+                  if (next) setScheduleSuggestion('')
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Select task" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No specific task</SelectItem>
+                  {scheduleTaskOptions.map((task) => (
+                    <SelectItem key={task.id} value={task.id}>{task.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {!scheduleTaskId && (
+              <div className="space-y-1">
+                <label className="text-sm text-muted-foreground">Objective / custom task</label>
+                <input
+                  type="text"
+                  value={scheduleSuggestion}
+                  onChange={(event) => setScheduleSuggestion(event.target.value)}
+                  placeholder="e.g. Review IA rubric and draft outline"
+                  className="w-full h-9 rounded-md border bg-background px-3 text-sm"
+                />
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {scheduleSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      onClick={() => setScheduleSuggestion(suggestion)}
+                      className="rounded-md border border-border bg-muted px-2 py-1 text-xs hover:bg-background"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-sm text-muted-foreground">Duration</label>
+                <Select value={String(scheduleDuration)} onValueChange={(value) => setScheduleDuration(Number.parseInt(value, 10))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="25">25 min</SelectItem>
+                    <SelectItem value="45">45 min</SelectItem>
+                    <SelectItem value="60">60 min</SelectItem>
+                    <SelectItem value="90">90 min</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm text-muted-foreground">When</label>
+                <input
+                  type="datetime-local"
+                  value={scheduleDateTime}
+                  onChange={(e) => setScheduleDateTime(e.target.value)}
+                  className="w-full h-9 rounded-md border bg-background px-3 text-sm"
+                />
+              </div>
+            </div>
+
+            <Button onClick={handleScheduleStudySession} disabled={!scheduleSubjectId || !scheduleDateTime} className="w-full">
+              Save Scheduled Session
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -507,16 +842,27 @@ function EventCard({
 }) {
   const subjectName = getSubjectName(event.subjectId)
   const subjectColor = getSubjectColor(event.subjectId)
+  const canToggle = event.type === 'task' || event.type === 'assessment'
 
   return (
     <div className={`flex items-start gap-2 p-2 border rounded-lg ${event.isCompleted ? 'opacity-60 bg-muted/30' : 'bg-background'}`}>
-      <button onClick={onToggle} className="mt-0.5 shrink-0">
-        {event.isCompleted ? (
-          <CheckCircle2 className="h-5 w-5 text-green-600" />
-        ) : (
-          <Circle className="h-5 w-5 text-muted-foreground hover:text-primary" />
-        )}
-      </button>
+      {canToggle ? (
+        <button onClick={onToggle} className="mt-0.5 shrink-0">
+          {event.isCompleted ? (
+            <CheckCircle2 className="h-5 w-5 text-green-600" />
+          ) : (
+            <Circle className="h-5 w-5 text-muted-foreground hover:text-primary" />
+          )}
+        </button>
+      ) : (
+        <div className="mt-0.5 shrink-0">
+          {event.type === 'scheduled_session' ? (
+            <CalendarClock className="h-5 w-5 text-emerald-500" />
+          ) : (
+            <Building2 className="h-5 w-5 text-violet-500" />
+          )}
+        </div>
+      )}
 
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-medium ${event.isCompleted ? 'line-through text-muted-foreground' : ''}`}>
@@ -527,7 +873,13 @@ function EventCard({
             variant={event.type === 'assessment' ? 'destructive' : 'secondary'} 
             className="text-[10px] h-5 px-1.5"
           >
-            {event.type === 'assessment' ? 'Assessment' : TASK_CATEGORIES.find(c => c.value === event.category)?.label || 'Task'}
+            {event.type === 'assessment'
+              ? 'Assessment'
+              : event.type === 'task'
+                ? TASK_CATEGORIES.find(c => c.value === event.category)?.label || 'Task'
+                : event.type === 'scheduled_session'
+                  ? 'Scheduled Study'
+                  : 'School Event'}
           </Badge>
           {subjectName && (
             <Badge variant="outline" className="text-[10px] h-5 px-1.5">

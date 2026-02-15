@@ -22,7 +22,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
   Plus, 
   Pencil, 
@@ -263,7 +263,7 @@ export function ErrorsTab({ subject, errorLogs, onErrorLogsChange }: ErrorsTabPr
               </div>
               <div className="space-y-2">
                 <Label>Error Type</Label>
-                <Select value={errorType} onValueChange={(v: any) => setErrorType(v)}>
+                <Select value={errorType} onValueChange={(v: 'content_gap' | 'logic_gap' | 'careless') => setErrorType(v)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -274,7 +274,7 @@ export function ErrorsTab({ subject, errorLogs, onErrorLogsChange }: ErrorsTabPr
                           {getTypeIcon(t.value as ErrorLog['error_type'])}
                           <div>
                             <p>{t.label}</p>
-                            <p className="text-xs text-muted-foreground">{t.description}</p>
+                            <p className="text-sm text-muted-foreground">{t.description}</p>
                           </div>
                         </div>
                       </SelectItem>
@@ -349,7 +349,14 @@ export function ErrorsTab({ subject, errorLogs, onErrorLogsChange }: ErrorsTabPr
 
       {/* Filter Tabs */}
       {errorLogs.length > 0 && (
-        <Tabs value={filterType} onValueChange={(v: any) => setFilterType(v)}>
+        <Tabs
+          value={filterType}
+          onValueChange={(value) => {
+            if (value === 'all' || value === 'content_gap' || value === 'logic_gap' || value === 'careless') {
+              setFilterType(value)
+            }
+          }}
+        >
           <TabsList>
             <TabsTrigger value="all">All ({errorLogs.filter(e => !e.is_resolved).length})</TabsTrigger>
             <TabsTrigger value="content_gap">Content ({contentGapCount})</TabsTrigger>

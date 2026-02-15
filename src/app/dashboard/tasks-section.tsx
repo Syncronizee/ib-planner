@@ -94,13 +94,22 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
     const supabase = createClient()
     const newState = !task.is_completed
 
+    const updateData: Record<string, unknown> = { is_completed: newState }
+    if (newState) {
+      updateData.completed_at = new Date().toISOString()
+    } else {
+      updateData.completed_at = null
+    }
+
     const { error } = await supabase
       .from('tasks')
-      .update({ is_completed: newState })
+      .update(updateData)
       .eq('id', task.id)
 
     if (!error) {
-      setTasks(tasks.map(t => t.id === task.id ? { ...t, is_completed: newState } : t))
+      const updatedTasks = tasks.map(t => t.id === task.id ? { ...t, is_completed: newState, completed_at: newState ? new Date().toISOString() : null } : t)
+      setTasks(updatedTasks)
+      window.dispatchEvent(new CustomEvent('tasks-updated', { detail: updatedTasks }))
 
       if (task.linked_assessment_id) {
         await supabase

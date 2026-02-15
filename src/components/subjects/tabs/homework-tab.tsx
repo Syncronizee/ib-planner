@@ -1,14 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Subject, Task, TASK_CATEGORIES } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -54,11 +52,7 @@ export function HomeworkTab({ subject }: HomeworkTabProps) {
 
   const router = useRouter()
 
-  useEffect(() => {
-    fetchTasks()
-  }, [subject.id])
-
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     setLoading(true)
     const supabase = createClient()
 
@@ -70,7 +64,12 @@ export function HomeworkTab({ subject }: HomeworkTabProps) {
 
     setTasks(data || [])
     setLoading(false)
-  }
+  }, [subject.id])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchTasks()
+  }, [fetchTasks])
 
   const resetForm = () => {
     setTitle('')
@@ -205,19 +204,19 @@ export function HomeworkTab({ subject }: HomeworkTabProps) {
       <div className="grid grid-cols-3 gap-2">
         <Card>
           <CardContent className="p-2">
-            <p className="text-[10px] text-muted-foreground">Pending</p>
+            <p className="text-sm text-muted-foreground">Pending</p>
             <p className="text-lg font-bold">{incompleteTasks.length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-2">
-            <p className="text-[10px] text-muted-foreground">Overdue</p>
+            <p className="text-sm text-muted-foreground">Overdue</p>
             <p className="text-lg font-bold text-red-600">{overdueTasks.length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-2">
-            <p className="text-[10px] text-muted-foreground">Completed</p>
+            <p className="text-sm text-muted-foreground">Completed</p>
             <p className="text-lg font-bold text-green-600">{completedTasks.length}</p>
           </CardContent>
         </Card>
@@ -230,20 +229,20 @@ export function HomeworkTab({ subject }: HomeworkTabProps) {
             <h3 className="font-semibold text-sm">{editing ? 'Edit Task' : 'Add Task'}</h3>
             
             <div className="space-y-1">
-              <Label className="text-xs">Title</Label>
+              <Label className="text-sm">Title</Label>
               <Input
                 placeholder="e.g. Complete worksheet 5.2"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="h-8 text-xs"
+                className="h-9 text-sm"
               />
             </div>
 
             <div className="grid grid-cols-3 gap-2">
               <div className="space-y-1">
-                <Label className="text-xs">Category</Label>
-                <Select value={category} onValueChange={(v: any) => setCategory(v)}>
-                  <SelectTrigger className="h-8 text-xs">
+                <Label className="text-sm">Category</Label>
+                <Select value={category} onValueChange={(v: Task['category']) => setCategory(v)}>
+                  <SelectTrigger className="h-9 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -254,9 +253,9 @@ export function HomeworkTab({ subject }: HomeworkTabProps) {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Priority</Label>
-                <Select value={priority} onValueChange={(v: any) => setPriority(v)}>
-                  <SelectTrigger className="h-8 text-xs">
+                <Label className="text-sm">Priority</Label>
+                <Select value={priority} onValueChange={(v: Task['priority']) => setPriority(v)}>
+                  <SelectTrigger className="h-9 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -267,10 +266,10 @@ export function HomeworkTab({ subject }: HomeworkTabProps) {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Due Date</Label>
+                <Label className="text-sm">Due Date</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal h-8 text-xs px-2">
+                    <Button variant="outline" className="w-full justify-start text-left font-normal h-9 text-sm px-2">
                       <CalendarIcon className="mr-1 h-3 w-3" />
                       {dueDate ? format(dueDate, 'M/d') : 'Pick'}
                     </Button>
@@ -283,17 +282,17 @@ export function HomeworkTab({ subject }: HomeworkTabProps) {
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={handleSave} disabled={!title} size="sm" className="text-xs h-8">
+              <Button onClick={handleSave} disabled={!title} size="sm" className="text-sm h-9">
                 Save
               </Button>
-              <Button variant="outline" onClick={handleCancel} size="sm" className="text-xs h-8">
+              <Button variant="outline" onClick={handleCancel} size="sm" className="text-sm h-9">
                 Cancel
               </Button>
             </div>
           </CardContent>
         </Card>
       ) : (
-        <Button onClick={handleAdd} size="sm" className="text-xs h-8">
+        <Button onClick={handleAdd} size="sm" className="text-sm h-9">
           <Plus className="h-3 w-3 mr-1" />
           Add Task
         </Button>
@@ -303,14 +302,14 @@ export function HomeworkTab({ subject }: HomeworkTabProps) {
       {tasks.length === 0 ? (
         <div className="text-center py-8 border-2 border-dashed rounded-lg">
           <p className="text-muted-foreground text-sm">No tasks for this subject.</p>
-          <p className="text-xs text-muted-foreground mt-1">Add homework and assignments here.</p>
+          <p className="text-sm text-muted-foreground mt-1">Add homework and assignments here.</p>
         </div>
       ) : (
         <div className="space-y-2">
           {/* Overdue */}
           {overdueTasks.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-xs font-medium text-red-600 flex items-center gap-1">
+              <h4 className="text-sm font-medium text-red-600 flex items-center gap-1">
                 <AlertCircle className="h-3 w-3" />
                 Overdue ({overdueTasks.length})
               </h4>
@@ -332,7 +331,7 @@ export function HomeworkTab({ subject }: HomeworkTabProps) {
           {/* Pending */}
           {incompleteTasks.filter(t => !overdueTasks.includes(t)).length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 Pending ({incompleteTasks.length - overdueTasks.length})
               </h4>
@@ -357,11 +356,11 @@ export function HomeworkTab({ subject }: HomeworkTabProps) {
             <div className="space-y-2">
               <button
                 onClick={() => setShowCompleted(!showCompleted)}
-                className="text-xs font-medium text-muted-foreground flex items-center gap-1 hover:text-foreground"
+                className="text-sm font-medium text-muted-foreground flex items-center gap-1 hover:text-foreground"
               >
                 <CheckCircle2 className="h-3 w-3" />
                 Completed ({completedTasks.length})
-                <span className="text-[10px]">{showCompleted ? '▼' : '▶'}</span>
+                <span className="text-sm">{showCompleted ? '▼' : '▶'}</span>
               </button>
               {showCompleted && completedTasks.map(task => (
                 <TaskCard
@@ -416,12 +415,12 @@ function TaskCard({
       
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1">
-          <p className={`font-medium text-xs truncate ${task.is_completed ? 'line-through' : ''}`}>
+          <p className={`font-medium text-sm truncate ${task.is_completed ? 'line-through' : ''}`}>
             {task.title}
           </p>
           <div className={`w-2 h-2 rounded-full shrink-0 ${getCategoryColor(task.category)}`} />
         </div>
-        <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
           <span className={getPriorityColor(task.priority)}>{task.priority}</span>
           {task.due_date && (
             <span className={isOverdue ? 'text-red-600' : ''}>

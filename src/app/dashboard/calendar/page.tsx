@@ -17,6 +17,8 @@ export default async function CalendarPage() {
     { data: tasks },
     { data: assessments },
     { data: subjects },
+    { data: scheduledSessions },
+    { data: schoolEvents },
   ] = await Promise.all([
     supabase
       .from('tasks')
@@ -32,6 +34,16 @@ export default async function CalendarPage() {
       .from('subjects')
       .select('*')
       .eq('user_id', user.id),
+    supabase
+      .from('scheduled_study_sessions')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('scheduled_for', { ascending: true }),
+    supabase
+      .from('school_events')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('event_date', { ascending: true }),
   ])
 
   return (
@@ -43,6 +55,8 @@ export default async function CalendarPage() {
           initialTasks={tasks || []}
           initialAssessments={assessments || []}
           subjects={subjects || []}
+          initialScheduledSessions={scheduledSessions || []}
+          initialSchoolEvents={schoolEvents || []}
         />
       </main>
     </div>

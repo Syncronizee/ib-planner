@@ -14,6 +14,7 @@
 }
 
 :root {
+  color-scheme: dark;
   --bg: #0B0F14;
   --fg: #E5E7EB;
   --muted: #111827;
@@ -540,8 +541,16 @@ body {
 }
 
 /* ============================================
-   FORM INPUTS (DARK THEME)
+   FORM INPUT COLOR SCHEME
    ============================================ */
-input, textarea, select {
+:root[data-theme='simple-dark'],
+:root[data-theme='tactical-command-center'] {
   color-scheme: dark;
+}
+
+:root[data-theme='simple-light'],
+:root[data-theme='minimal-focus'],
+:root[data-theme='academic-elite'],
+:root[data-theme='energetic-momentum'] {
+  color-scheme: light;
 }

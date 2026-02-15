@@ -155,6 +155,22 @@ export const DAYS_OF_WEEK = [
   { value: 6, label: 'Saturday' },
 ] as const
 
+export type EnergyLevel = 'high' | 'medium' | 'low'
+export type SessionType = 'new_content' | 'practice' | 'review' | 'passive'
+
+export const ENERGY_LEVELS = [
+  { value: 'high' as const, label: 'High Energy', icon: 'Zap', description: 'Complex reasoning, new concepts, difficult problems, weakest subjects' },
+  { value: 'medium' as const, label: 'Medium Energy', icon: 'Gauge', description: 'Standard practice, review, flashcards, past papers' },
+  { value: 'low' as const, label: 'Low Energy', icon: 'Battery', description: 'Passive review, organizing notes, watching videos, or rest' },
+] as const
+
+export const SESSION_TYPES = [
+  { value: 'new_content' as const, label: 'New Content', description: 'Learning new topics or concepts' },
+  { value: 'practice' as const, label: 'Practice Problems', description: 'Working through exercises and questions' },
+  { value: 'review' as const, label: 'Review', description: 'Reviewing previously learned material' },
+  { value: 'passive' as const, label: 'Passive', description: 'Watching videos, reading, listening' },
+] as const
+
 export type Task = {
   id: string
   user_id: string
@@ -166,6 +182,85 @@ export type Task = {
   subject_id: string | null
   category: TaskCategory
   linked_assessment_id: string | null
+  completed_at: string | null
+  energy_level: EnergyLevel | null
+  created_at: string
+}
+
+export type EnergyCheckin = {
+  id: string
+  user_id: string
+  energy_level: EnergyLevel
+  timestamp: string
+  created_at: string
+}
+
+export type WeeklyPlan = {
+  id: string
+  user_id: string
+  week_start_date: string
+  hardest_task_id: string | null
+  weakest_subject_id: string | null
+  hardest_task_scheduled_time: string | null
+  weakest_subject_scheduled_time: string | null
+  hardest_task_completed: boolean
+  weakest_subject_completed: boolean
+  created_at: string
+}
+
+export type SessionStatus = 'completed' | 'abandoned'
+export type ProductivityRating = 'good' | 'okay' | 'poor'
+
+export const PRODUCTIVITY_RATINGS = [
+  { value: 'good' as const, label: 'Good', icon: 'ThumbsUp' },
+  { value: 'okay' as const, label: 'Okay', icon: 'Minus' },
+  { value: 'poor' as const, label: 'Poor', icon: 'ThumbsDown' },
+] as const
+
+export type StudySession = {
+  id: string
+  user_id: string
+  subject_id: string | null
+  task_id: string | null
+  duration_minutes: number
+  duration_goal_minutes: number | null
+  actual_duration_minutes: number | null
+  energy_level: EnergyLevel
+  session_type: SessionType
+  productivity_rating: ProductivityRating | null
+  session_status: SessionStatus | null
+  notes: string | null
+  started_at: string
+  created_at: string
+}
+
+export type ScheduledStudySessionStatus = 'scheduled' | 'completed' | 'cancelled'
+
+export type ScheduledStudySession = {
+  id: string
+  user_id: string
+  subject_id: string | null
+  task_id: string | null
+  task_suggestion: string | null
+  duration_goal_minutes: number | null
+  energy_level: EnergyLevel
+  session_type: SessionType
+  scheduled_for: string
+  status: ScheduledStudySessionStatus
+  notes: string | null
+  created_at: string
+}
+
+export type SchoolEvent = {
+  id: string
+  user_id: string
+  title: string
+  description: string | null
+  event_date: string
+  start_time: string | null
+  end_time: string | null
+  all_day: boolean
+  location: string | null
   created_at: string
 }
 
@@ -370,10 +465,13 @@ export type Note = {
   subject_id: string
   topic_id: string | null
   title: string
-  content: any // Tiptap JSON content
+  content: {
+    preview?: string
+    [key: string]: unknown
+  } | null // Tiptap JSON content
   plain_text: string | null
   has_drawing: boolean
-  drawing_data: any | null // Excalidraw JSON data
+  drawing_data: unknown | null // Excalidraw JSON data
   created_at: string
   updated_at: string
 }

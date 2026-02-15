@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { LogOut, Calendar, LayoutDashboard, Compass, Lightbulb } from 'lucide-react'
+import { LogOut, Calendar, LayoutDashboard, Compass, Lightbulb, BookOpen, Sparkles } from 'lucide-react'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import type { ThemeId } from '@/components/theme/themes'
 
@@ -26,6 +26,8 @@ export function Header({ email }: HeaderProps) {
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/dashboard/calendar', label: 'Calendar', icon: Calendar },
+    { href: '/dashboard/plan-week', label: 'Plan', icon: Sparkles },
+    { href: '/dashboard/study-sessions', label: 'Sessions', icon: BookOpen },
     { href: '/dashboard/cas', label: 'CAS', icon: Compass },
     { href: '/dashboard/tok', label: 'TOK', icon: Lightbulb },
   ]
@@ -33,9 +35,13 @@ export function Header({ email }: HeaderProps) {
   return (
     <header className="token-header sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-8">
-          <Link href="/dashboard" className="font-bold text-xl text-[var(--fg)]">
-            IB Planner
+        <div className="flex items-center gap-5">
+          <Link
+            href="/dashboard"
+            aria-label="Go to dashboard"
+            className="h-8 w-8 rounded-xl border border-[var(--border)] bg-[var(--muted)]/70 flex items-center justify-center shadow-sm"
+          >
+            <span className="h-3 w-3 rounded-full bg-[var(--accent)]" />
           </Link>
           
           <nav className="hidden sm:flex items-center gap-1">

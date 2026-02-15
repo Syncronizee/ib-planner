@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Subject, Assessment, Task, ASSESSMENT_TYPES } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -63,11 +63,7 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
 
   const router = useRouter()
 
-  useEffect(() => {
-    fetchAvailableTasks()
-  }, [subject.id])
-
-  const fetchAvailableTasks = async () => {
+  const fetchAvailableTasks = useCallback(async () => {
     const supabase = createClient()
     const { data } = await supabase
       .from('tasks')
@@ -76,7 +72,12 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
       .order('due_date', { ascending: true })
     
     setAvailableTasks(data || [])
-  }
+  }, [subject.id])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchAvailableTasks()
+  }, [fetchAvailableTasks])
 
   const resetForm = () => {
     setTitle('')
@@ -320,13 +321,13 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
         <div className="grid grid-cols-4 gap-2">
           <Card>
             <CardContent className="p-2">
-              <p className="text-[10px] text-muted-foreground">Completed</p>
+              <p className="text-sm text-muted-foreground">Completed</p>
               <p className="text-lg font-bold">{completedAssessments.length}/{totalAssessments}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-2">
-              <p className="text-[10px] text-muted-foreground">Average</p>
+              <p className="text-sm text-muted-foreground">Average</p>
               <p className={`text-lg font-bold ${averagePercentage ? getScoreColor(averagePercentage) : ''}`}>
                 {averagePercentage !== null ? `${averagePercentage}%` : '-'}
               </p>
@@ -334,7 +335,7 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
           </Card>
           <Card>
             <CardContent className="p-2">
-              <p className="text-[10px] text-muted-foreground">Highest</p>
+              <p className="text-sm text-muted-foreground">Highest</p>
               <p className={`text-lg font-bold ${highestScore ? getScoreColor(highestScore) : ''}`}>
                 {highestScore !== null ? `${highestScore}%` : '-'}
               </p>
@@ -342,7 +343,7 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
           </Card>
           <Card>
             <CardContent className="p-2">
-              <p className="text-[10px] text-muted-foreground">Lowest</p>
+              <p className="text-sm text-muted-foreground">Lowest</p>
               <p className={`text-lg font-bold ${lowestScore ? getScoreColor(lowestScore) : ''}`}>
                 {lowestScore !== null ? `${lowestScore}%` : '-'}
               </p>
@@ -360,18 +361,18 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
             {/* Row 1: Title and Type */}
             <div className="grid grid-cols-3 gap-2">
               <div className="col-span-2 space-y-1">
-                <Label className="text-xs">Title</Label>
+                <Label className="text-sm">Title</Label>
                 <Input
                   placeholder="e.g. Unit 3 Test"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="h-8 text-xs"
+                  className="h-9 text-sm"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Type</Label>
-                <Select value={type} onValueChange={(v: any) => setType(v)}>
-                  <SelectTrigger className="h-8 text-xs">
+                <Label className="text-sm">Type</Label>
+                <Select value={type} onValueChange={(v: Assessment['type']) => setType(v)}>
+                  <SelectTrigger className="h-9 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -386,40 +387,40 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
             {/* Row 2: Score, Max, Weight, Date */}
             <div className="grid grid-cols-4 gap-2">
               <div className="space-y-1">
-                <Label className="text-xs">Score</Label>
+                <Label className="text-sm">Score</Label>
                 <Input
                   type="number"
                   placeholder="85"
                   value={score}
                   onChange={(e) => setScore(e.target.value)}
-                  className="h-8 text-xs"
+                  className="h-9 text-sm"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Max</Label>
+                <Label className="text-sm">Max</Label>
                 <Input
                   type="number"
                   placeholder="100"
                   value={maxScore}
                   onChange={(e) => setMaxScore(e.target.value)}
-                  className="h-8 text-xs"
+                  className="h-9 text-sm"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Weight %</Label>
+                <Label className="text-sm">Weight %</Label>
                 <Input
                   type="number"
                   placeholder="20"
                   value={weight}
                   onChange={(e) => setWeight(e.target.value)}
-                  className="h-8 text-xs"
+                  className="h-9 text-sm"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Date</Label>
+                <Label className="text-sm">Date</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal h-8 text-xs px-2">
+                    <Button variant="outline" className="w-full justify-start text-left font-normal h-9 text-sm px-2">
                       <CalendarIcon className="mr-1 h-3 w-3" />
                       {date ? format(date, 'M/d') : 'Pick'}
                     </Button>
@@ -438,14 +439,14 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
                 checked={isCompleted}
                 onCheckedChange={(checked) => setIsCompleted(checked as boolean)}
               />
-              <Label htmlFor="is_completed" className="text-xs">
+              <Label htmlFor="is_completed" className="text-sm">
                 Completed (include in grade calculation)
               </Label>
             </div>
 
             {/* Row 4: Link Tasks */}
             <div className="space-y-2 p-2 border rounded-lg bg-muted/50">
-              <Label className="text-xs flex items-center gap-1">
+              <Label className="text-sm flex items-center gap-1">
                 <LinkIcon className="h-3 w-3" />
                 Link Tasks ({linkedTaskIds.length})
               </Label>
@@ -457,7 +458,7 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
                     const task = availableTasks.find(t => t.id === taskId)
                     if (!task) return null
                     return (
-                      <Badge key={taskId} variant="secondary" className="text-xs flex items-center gap-1">
+                      <Badge key={taskId} variant="secondary" className="text-sm flex items-center gap-1">
                         {task.title}
                         <button 
                           onClick={() => handleRemoveTaskFromLink(taskId)}
@@ -473,7 +474,7 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
               
               {/* Add Task Dropdown */}
               <Select onValueChange={handleAddTaskToLink} value="">
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="Add a task..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -491,17 +492,17 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
                 </SelectContent>
               </Select>
               
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Linked tasks will sync completion status with this assessment
               </p>
             </div>
 
             {/* Buttons */}
             <div className="flex gap-2">
-              <Button onClick={handleSave} disabled={!title} size="sm" className="text-xs h-8">
+              <Button onClick={handleSave} disabled={!title} size="sm" className="text-sm h-9">
                 Save
               </Button>
-              <Button variant="outline" onClick={handleCancel} size="sm" className="text-xs h-8">
+              <Button variant="outline" onClick={handleCancel} size="sm" className="text-sm h-9">
                 Cancel
               </Button>
             </div>
@@ -509,13 +510,13 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
         </Card>
       ) : (
         <div className="flex items-center justify-between">
-          <Button onClick={handleAdd} size="sm" className="text-xs h-8">
+          <Button onClick={handleAdd} size="sm" className="text-sm h-9">
             <Plus className="h-3 w-3 mr-1" />
             Add Assessment
           </Button>
           {incompleteAssessments.length > 0 && (
             <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground">Show pending</Label>
+              <Label className="text-sm text-muted-foreground">Show pending</Label>
               <Checkbox checked={showIncomplete} onCheckedChange={(v) => setShowIncomplete(v as boolean)} />
             </div>
           )}
@@ -526,14 +527,14 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
       {assessments.length === 0 ? (
         <div className="text-center py-8 border-2 border-dashed rounded-lg">
           <p className="text-muted-foreground text-sm">No assessments logged yet.</p>
-          <p className="text-xs text-muted-foreground mt-1">Track your tests, IAs, and assignments here.</p>
+          <p className="text-sm text-muted-foreground mt-1">Track your tests, IAs, and assignments here.</p>
         </div>
       ) : (
         <div className="space-y-2">
           {/* Pending Assessments */}
           {showIncomplete && incompleteAssessments.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 Pending ({incompleteAssessments.length})
               </h4>
@@ -559,7 +560,7 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
           {completedAssessments.length > 0 && (
             <div className="space-y-2">
               {showIncomplete && incompleteAssessments.length > 0 && (
-                <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1 mt-4">
+                <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-1 mt-4">
                   <CheckCircle2 className="h-3 w-3" />
                   Completed ({completedAssessments.length})
                 </h4>
@@ -627,14 +628,14 @@ function AssessmentCard({
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1 flex-wrap">
-              <p className="font-medium text-xs truncate">
+              <p className="font-medium text-sm truncate">
                 {assessment.title}
               </p>
-              <Badge variant="outline" className="text-[10px] shrink-0">
+              <Badge variant="outline" className="text-sm shrink-0">
                 {ASSESSMENT_TYPES.find(t => t.value === assessment.type)?.label}
               </Badge>
             </div>
-            <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
               {assessment.is_completed && assessment.score !== null && (
                 <span>{assessment.score}/{assessment.max_score}</span>
               )}
@@ -667,12 +668,12 @@ function AssessmentCard({
       {/* Linked Tasks */}
       {linkedTasks.length > 0 && (
         <div className="mt-2 pt-2 border-t flex flex-wrap gap-1">
-          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+          <span className="text-sm text-muted-foreground flex items-center gap-0.5">
             <LinkIcon className="h-3 w-3" />
             Linked:
           </span>
           {linkedTasks.map(task => (
-            <Badge key={task.id} variant="secondary" className="text-[10px] flex items-center gap-1">
+            <Badge key={task.id} variant="secondary" className="text-sm flex items-center gap-1">
               {task.is_completed && <CheckCircle2 className="h-2 w-2 text-green-600" />}
               {task.title}
               <button 
