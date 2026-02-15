@@ -34,8 +34,8 @@ export function Header({ email }: HeaderProps) {
 
   return (
     <header className="token-header sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-5">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-6">
           <Link
             href="/dashboard"
             aria-label="Go to dashboard"
@@ -66,7 +66,7 @@ export function Header({ email }: HeaderProps) {
           </nav>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="ml-auto flex items-center justify-end gap-4 lg:gap-5 shrink-0">
           <div className="hidden md:flex items-center gap-2">
             <span className="text-xs font-medium token-muted">Theme</span>
             <select
