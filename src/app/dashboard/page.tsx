@@ -8,6 +8,7 @@ import { TimetableSection } from './timetable-section'
 import { EnergyCheckinWrapper } from '@/components/energy/energy-checkin-wrapper'
 import { WeeklyPlanWidget } from '@/components/planning/weekly-plan-widget'
 import { WeaknessIndicator } from '@/components/dashboard/weakness-indicator'
+import { DashboardOverviewCard } from '@/components/dashboard/dashboard-overview-card'
 import { ProactiveScore } from '@/components/dashboard/proactive-score'
 import { StudySessionsWidget } from '@/components/dashboard/study-sessions-widget'
 import { SessionLoggerFab } from '@/components/study/session-logger-fab'
@@ -105,30 +106,12 @@ export default async function DashboardPage() {
       <SessionLoggerFab subjects={subjects || []} />
 
       <main className="dashboard-main max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-6">
-        {/* Theme Demo Surface */}
-        <section className="token-card p-5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h1 className="text-xl font-semibold text-[var(--card-fg)]">Dashboard Overview</h1>
-              <p className="text-sm token-muted mt-1">
-                Active theme tokens now drive this page background, panels, borders, and actions.
-              </p>
-            </div>
-            <button className="token-btn-accent rounded-xl px-4 py-2 text-sm font-medium transition-smooth">
-              Focus Session
-            </button>
-          </div>
-          <div className="mt-4 border-t border-[var(--border)] pt-3 space-y-2">
-            <div className="token-row px-3 py-2 flex items-center justify-between text-sm">
-              <span>Upcoming deadlines</span>
-              <span className="token-muted">Prioritized by due date</span>
-            </div>
-            <div className="token-row px-3 py-2 flex items-center justify-between text-sm">
-              <span>Study consistency</span>
-              <span className="token-muted">Last 7 days trend</span>
-            </div>
-          </div>
-        </section>
+        <DashboardOverviewCard
+          tasks={tasks || []}
+          assessments={assessments || []}
+          subjects={subjects || []}
+          scheduledSessions={scheduledSessions || []}
+        />
 
         {/* Stats Overview - Colored Glass Cards with Dotted Numbers */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -178,7 +161,7 @@ export default async function DashboardPage() {
             />
           </div>
           <div className="glass-card hover-lift overflow-hidden">
-            <WeaknessIndicator subjects={subjects || []} />
+            <WeaknessIndicator subjects={subjects || []} tasks={tasks || []} />
           </div>
           <div className="glass-card hover-lift overflow-hidden">
             <ProactiveScore tasks={tasks || []} subjects={subjects || []} />

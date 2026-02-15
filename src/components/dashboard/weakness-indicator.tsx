@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Subject, WeaknessTag, SUBJECT_COLORS } from '@/lib/types'
+import { useEffect, useState } from 'react'
+import { Subject, SUBJECT_COLORS, Task, WeaknessTag } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { StudySessionSetupDialog } from '@/components/study/study-session-setup-dialog'
 import {
   AlertTriangle,
   Calendar,
@@ -15,10 +16,10 @@ import {
   ChevronUp,
   Loader2,
 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 interface WeaknessIndicatorProps {
   subjects: Subject[]
+  tasks: Task[]
 }
 
 function findWeakestSubject(subjects: Subject[]): { subject: Subject; reason: string } | null {
@@ -27,7 +28,7 @@ function findWeakestSubject(subjects: Subject[]): { subject: Subject; reason: st
   const byConfidence = [...subjects].sort((a, b) => a.confidence - b.confidence)
   const lowestConfidence = byConfidence[0]
 
-  const withGrades = subjects.filter(s => s.current_grade !== null)
+  const withGrades = subjects.filter((subject) => subject.current_grade !== null)
   const byGrade = [...withGrades].sort((a, b) => (a.current_grade || 0) - (b.current_grade || 0))
   const lowestGrade = byGrade[0]
 
@@ -58,18 +59,16 @@ function findWeakestSubject(subjects: Subject[]): { subject: Subject; reason: st
   }
 }
 
-export function WeaknessIndicator({ subjects }: WeaknessIndicatorProps) {
-  const [scheduling, setScheduling] = useState(false)
-  const [schedulingTag, setSchedulingTag] = useState<string | null>(null)
+export function WeaknessIndicator({ subjects, tasks }: WeaknessIndicatorProps) {
   const [weaknesses, setWeaknesses] = useState<WeaknessTag[]>([])
   const [loadedSubjectId, setLoadedSubjectId] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
-  const router = useRouter()
+  const [setupOpen, setSetupOpen] = useState(false)
+  const [setupObjective, setSetupObjective] = useState('')
 
   const result = findWeakestSubject(subjects)
   const weakestSubjectId = result?.subject.id
 
-  // Fetch weakness_tags for the weakest subject
   useEffect(() => {
     if (!weakestSubjectId) return
 
@@ -108,24 +107,13 @@ export function WeaknessIndicator({ subjects }: WeaknessIndicatorProps) {
 
   const { subject, reason } = result
 
-  const handleScheduleStudy = (weaknessTag?: string) => {
-    if (weaknessTag) {
-      setSchedulingTag(weaknessTag)
-    } else {
-      setScheduling(true)
-    }
-
-    const objective = weaknessTag
-      ? `Work on weakness: ${weaknessTag}`
-      : `Study ${subject.name} weakness focus`
-    const query = new URLSearchParams({
-      intent: 'schedule-study',
-      subject: subject.id,
-      objective,
-      source: 'weakness-focus',
-    })
-
-    router.push(`/dashboard/calendar?${query.toString()}`)
+  const openSetupDialog = (weaknessTag?: string) => {
+    setSetupObjective(
+      weaknessTag
+        ? `Work on weakness: ${weaknessTag}`
+        : `Study ${subject.name} weakness focus`
+    )
+    setSetupOpen(true)
   }
 
   const subjectColors: Record<string, string> = {
@@ -138,7 +126,7 @@ export function WeaknessIndicator({ subjects }: WeaknessIndicatorProps) {
   const subjectColorClass = SUBJECT_COLORS.find((entry) => entry.name === subject.color)?.class || 'bg-slate-500'
   const loading = loadedSubjectId !== subject.id
 
-  const unresolvedWeaknesses = weaknesses.filter(w => !w.is_resolved)
+  const unresolvedWeaknesses = weaknesses.filter((weakness) => !weakness.is_resolved)
   const displayWeaknesses = expanded ? unresolvedWeaknesses : unresolvedWeaknesses.slice(0, 3)
 
   return (
@@ -151,7 +139,6 @@ export function WeaknessIndicator({ subjects }: WeaknessIndicatorProps) {
       </div>
 
       <div className={`p-4 rounded-xl border-2 ${borderColor} bg-[var(--muted)]/40 space-y-3`}>
-        {/* Subject header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className={`w-3 h-3 rounded-full ${subjectColorClass}`} />
@@ -162,7 +149,6 @@ export function WeaknessIndicator({ subjects }: WeaknessIndicatorProps) {
 
         <p className="text-xs text-amber-400">{reason}</p>
 
-        {/* Specific weaknesses */}
         {loading ? (
           <div className="flex items-center gap-2 py-2">
             <Loader2 className="h-3 w-3 animate-spin text-[var(--muted-fg)]" />
@@ -173,13 +159,13 @@ export function WeaknessIndicator({ subjects }: WeaknessIndicatorProps) {
             <p className="text-[10px] text-[var(--muted-fg)] uppercase tracking-wider font-medium">
               Specific weaknesses ({unresolvedWeaknesses.length})
             </p>
-            {displayWeaknesses.map(w => (
+            {displayWeaknesses.map((weakness) => (
               <div
-                key={w.id}
+                key={weakness.id}
                 className="flex items-start gap-2.5 p-2.5 rounded-lg bg-[var(--card)]/60 border border-[var(--border)] group"
               >
                 <div className="mt-0.5">
-                  {w.weakness_type === 'content' ? (
+                  {weakness.weakness_type === 'content' ? (
                     <BookOpen className="h-3.5 w-3.5 text-blue-400" />
                   ) : (
                     <Brain className="h-3.5 w-3.5 text-purple-400" />
@@ -187,27 +173,26 @@ export function WeaknessIndicator({ subjects }: WeaknessIndicatorProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-medium text-[var(--card-fg)]">{w.tag}</span>
+                    <span className="text-xs font-medium text-[var(--card-fg)]">{weakness.tag}</span>
                     <Badge className={`text-[9px] px-1.5 py-0 border-0 ${
-                      w.weakness_type === 'content'
+                      weakness.weakness_type === 'content'
                         ? 'bg-blue-500/15 text-blue-400'
                         : 'bg-purple-500/15 text-purple-400'
                     }`}>
-                      {w.weakness_type === 'content' ? 'Content' : 'Logic'}
+                      {weakness.weakness_type === 'content' ? 'Content' : 'Logic'}
                     </Badge>
                   </div>
-                  {w.description && (
-                    <p className="text-[10px] text-[var(--muted-fg)] mt-0.5 line-clamp-1">{w.description}</p>
+                  {weakness.description && (
+                    <p className="text-[10px] text-[var(--muted-fg)] mt-0.5 line-clamp-1">{weakness.description}</p>
                   )}
                 </div>
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => handleScheduleStudy(w.tag)}
-                  disabled={schedulingTag === w.tag}
+                  onClick={() => openSetupDialog(weakness.tag)}
                   className="h-6 px-2 text-[10px] opacity-0 group-hover:opacity-100 transition-smooth text-[var(--accent)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10"
                 >
-                  {schedulingTag === w.tag ? 'Opening...' : 'Study this'}
+                  Study this
                 </Button>
               </div>
             ))}
@@ -227,20 +212,30 @@ export function WeaknessIndicator({ subjects }: WeaknessIndicatorProps) {
           </div>
         ) : null}
 
-        {/* Schedule study action */}
         <div className="flex items-center justify-between pt-1 border-t border-[var(--border)]">
           <p className="text-xs text-[var(--muted-fg)]">When are you studying this?</p>
           <Button
             size="sm"
-            onClick={() => handleScheduleStudy()}
-            disabled={scheduling}
+            onClick={() => openSetupDialog()}
             className="btn-glass rounded-xl text-xs"
           >
             <Calendar className="h-3 w-3 mr-1" />
-            {scheduling ? 'Opening...' : 'Schedule Study'}
+            Schedule Study
           </Button>
         </div>
       </div>
+
+      <StudySessionSetupDialog
+        open={setupOpen}
+        onOpenChange={setSetupOpen}
+        subjects={subjects}
+        tasks={tasks}
+        initialSubjectId={subject.id}
+        initialObjective={setupObjective}
+        lockSubject
+        title="Weakness Focus Session"
+        description="Use the same full setup options, with your weakness objective prefilled."
+      />
     </div>
   )
 }
