@@ -1,0 +1,78 @@
+appId: com.ibplanner.app
+productName: Scholar Board
+copyright: Copyright © 2026 Scholar Board
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - "dist-electron/**/*"
+  - ".next/standalone/**/*"
+  - ".next/static/**/*"
+  - "public/**/*"
+  - "package.json"
+
+extraMetadata:
+  main: dist-electron/main.js
+
+asar: true
+asarUnpack:
+  - ".next/standalone/**/*"
+  - ".next/static/**/*"
+  - "public/**/*"
+  - "node_modules/better-sqlite3/**/*"
+
+npmRebuild: false
+nodeGypRebuild: false
+buildDependenciesFromSource: false
+
+mac:
+  category: public.app-category.education
+  icon: build/icon.icns
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  target:
+    - target: dmg
+    - target: zip
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+  window:
+    width: 540
+    height: 380
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Scholar Board
+
+linux:
+  icon: build/icons
+  category: Education
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64

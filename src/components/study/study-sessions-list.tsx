@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { StudySession, Subject, ENERGY_LEVELS, SESSION_TYPES } from '@/lib/types'
+import { StudySession, Subject, SESSION_TYPES } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { formatDotoNumber } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -17,8 +17,7 @@ import {
   AlertTriangle,
   BarChart3,
 } from 'lucide-react'
-import { format, isThisWeek, isThisMonth, differenceInHours } from 'date-fns'
-import { useRouter } from 'next/navigation'
+import { format, isThisWeek, isThisMonth } from 'date-fns'
 import { SessionLoggerModal } from './session-logger-modal'
 
 interface StudySessionsListProps {
@@ -41,7 +40,6 @@ const ENERGY_COLORS = {
 export function StudySessionsList({ sessions: initialSessions, subjects }: StudySessionsListProps) {
   const [sessions, setSessions] = useState(initialSessions)
   const [logOpen, setLogOpen] = useState(false)
-  const router = useRouter()
 
   const handleDelete = async (id: string) => {
     const supabase = createClient()

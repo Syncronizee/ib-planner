@@ -58,7 +58,7 @@ export function SubjectDialog({ open, onOpenChange, subject, onSave }: SubjectDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md border-2 border-[var(--border)] bg-[var(--card)]">
         <DialogHeader>
           <DialogTitle>{subject ? 'Edit Subject' : 'Add Subject'}</DialogTitle>
           <DialogDescription className="sr-only">
@@ -73,6 +73,7 @@ export function SubjectDialog({ open, onOpenChange, subject, onSave }: SubjectDi
               placeholder="e.g. Physics, English A"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              className="border-2 border-[var(--border)] bg-[var(--card)] text-[var(--card-fg)]"
               required
             />
           </div>
@@ -80,7 +81,7 @@ export function SubjectDialog({ open, onOpenChange, subject, onSave }: SubjectDi
           <div className="space-y-2">
             <Label htmlFor="level">Level</Label>
             <Select value={level} onValueChange={(v) => setLevel(v as 'HL' | 'SL')}>
-              <SelectTrigger>
+              <SelectTrigger className="border-2 border-[var(--border)] bg-[var(--card)] text-[var(--card-fg)]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

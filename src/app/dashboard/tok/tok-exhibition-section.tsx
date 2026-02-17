@@ -44,7 +44,7 @@ interface TOKExhibitionSectionProps {
 
 export function TOKExhibitionSection({ initialExhibition, initialObjects, initialUserPrompts }: TOKExhibitionSectionProps) {
   const [exhibition, setExhibition] = useState<TOKExhibition | null>(initialExhibition)
-  const [objects, setObjects] = useState<TOKExhibitionObject[]>(initialObjects)
+  const [objects] = useState<TOKExhibitionObject[]>(initialObjects)
   const [userPrompts, setUserPrompts] = useState<TOKPrompt[]>(initialUserPrompts)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [prompt, setPrompt] = useState(exhibition?.prompt || '')

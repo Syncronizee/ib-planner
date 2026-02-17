@@ -16,9 +16,8 @@
 # next.js
 /.next/
 /out/
-
-# production
-/build
+/dist-electron/
+/release/
 
 # misc
 .DS_Store

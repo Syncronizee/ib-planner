@@ -18,10 +18,6 @@ export function StatsCards({ subjects, tasks }: StatsCardsProps) {
     !isToday(new Date(t.due_date))
   ).length
 
-  const avgConfidence = subjects.length > 0
-    ? Math.round(subjects.reduce((acc, s) => acc + s.confidence, 0) / subjects.length * 10) / 10
-    : 0
-
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
       <Card>

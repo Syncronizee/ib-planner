@@ -75,9 +75,9 @@ export function DrawingCanvas({
     reader.readAsDataURL(blob)
   }, [excalidrawAPI, onSave, onOpenChange])
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     onOpenChange(false)
-  }
+  }, [onOpenChange])
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -87,7 +87,7 @@ export function DrawingCanvas({
     }
     window.addEventListener('keydown', handleEscape)
     return () => window.removeEventListener('keydown', handleEscape)
-  }, [open])
+  }, [open, handleClose])
 
   // Reset API when opening
   useEffect(() => {

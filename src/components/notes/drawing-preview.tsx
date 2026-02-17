@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Pencil, Trash2, Maximize2 } from 'lucide-react'
 import { DrawingCanvas } from './drawing-canvas'
+import Image from 'next/image'
 
 interface DrawingPreviewProps {
   drawingData: any
@@ -37,9 +38,12 @@ export function DrawingPreview({
       <Card className="overflow-hidden">
         <CardContent className="p-0 relative group">
           {previewImage ? (
-            <img
+            <Image
               src={previewImage}
               alt="Drawing"
+              width={1200}
+              height={800}
+              unoptimized
               className="w-full h-auto cursor-pointer"
               onClick={() => editable ? setCanvasOpen(true) : setViewFullOpen(true)}
             />
@@ -95,9 +99,12 @@ export function DrawingPreview({
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-8"
           onClick={() => setViewFullOpen(false)}
         >
-          <img
+          <Image
             src={previewImage}
             alt="Drawing full view"
+            width={1600}
+            height={1000}
+            unoptimized
             className="max-w-full max-h-full object-contain"
           />
           <Button

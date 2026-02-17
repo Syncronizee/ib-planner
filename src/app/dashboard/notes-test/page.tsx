@@ -7,6 +7,7 @@ import { useImageUpload } from '@/hooks/use-image-upload'
 import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import Image from 'next/image'
 
 export default function NotesTestPage() {
   const [content, setContent] = useState<any>(null)
@@ -94,9 +95,12 @@ export default function NotesTestPage() {
                 <div className="grid grid-cols-2 gap-4">
                   {uploadedImages.map((img, i) => (
                     <div key={i} className="space-y-2">
-                      <img 
-                        src={img.url} 
-                        alt={`Uploaded ${i + 1}`} 
+                      <Image
+                        src={img.url}
+                        alt={`Uploaded ${i + 1}`}
+                        width={320}
+                        height={128}
+                        unoptimized
                         className="rounded-lg border w-full h-32 object-cover"
                       />
                       <p className="text-xs text-muted-foreground truncate">{img.path}</p>

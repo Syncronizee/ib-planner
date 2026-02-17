@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { LogOut, Calendar, LayoutDashboard, Compass, Lightbulb, BookOpen, Sparkles } from 'lucide-react'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import type { ThemeId } from '@/components/theme/themes'
+import { SyncStatus } from '@/components/sync-status'
 
 interface HeaderProps {
   email: string
@@ -66,7 +67,13 @@ export function Header({ email }: HeaderProps) {
           </nav>
         </div>
 
-        <div className="ml-auto flex items-center justify-end gap-4 lg:gap-5 shrink-0">
+        <div className="ml-auto flex items-center justify-end gap-3 lg:gap-4 shrink-0">
+          <div className="hidden lg:block xl:hidden">
+            <SyncStatus compact />
+          </div>
+          <div className="hidden xl:block">
+            <SyncStatus />
+          </div>
           <div className="hidden md:flex items-center gap-2">
             <span className="text-xs font-medium token-muted">Theme</span>
             <select
@@ -83,7 +90,7 @@ export function Header({ email }: HeaderProps) {
             </select>
           </div>
           <span className="text-sm token-muted hidden lg:inline">{email}</span>
-          <Button 
+          <Button
             variant="ghost" 
             size="sm" 
             onClick={handleSignOut} 
@@ -98,6 +105,7 @@ export function Header({ email }: HeaderProps) {
       {/* Mobile Navigation */}
       <div className="sm:hidden border-t border-[var(--border)] px-3 py-2">
         <div className="flex items-center gap-2 mb-2">
+          <SyncStatus compact className="mr-1" />
           <span className="text-[11px] uppercase tracking-wide token-muted">Theme</span>
           <select
             aria-label="Theme"

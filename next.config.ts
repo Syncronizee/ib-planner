@@ -1,8 +1,17 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
+
+const isElectronBuild = process.env.ELECTRON_BUILD === 'true'
 
 const nextConfig: NextConfig = {
-  /* config options here */
   reactCompiler: true,
-};
+  images: {
+    unoptimized: isElectronBuild,
+  },
+  ...(isElectronBuild
+    ? {
+        output: 'standalone',
+      }
+    : {}),
+}
 
-export default nextConfig;
+export default nextConfig

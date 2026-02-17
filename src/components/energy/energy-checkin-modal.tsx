@@ -9,11 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Zap, Gauge, Battery, X, CheckCircle2, Circle, ArrowRight } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Zap, Gauge, Battery, CheckCircle2, Circle, ArrowRight } from 'lucide-react'
 import { format } from 'date-fns'
-import { useRouter } from 'next/navigation'
 
 interface EnergyCheckinModalProps {
   open: boolean
@@ -40,7 +39,7 @@ const ENERGY_ICON_COLORS = {
   low: 'text-blue-400',
 }
 
-function getTasksForEnergy(tasks: Task[], energy: EnergyLevel, subjects: Subject[]): Task[] {
+function getTasksForEnergy(tasks: Task[], energy: EnergyLevel): Task[] {
   const incompleteTasks = tasks.filter(t => !t.is_completed)
 
   // If task has an explicit energy_level, use that
@@ -67,7 +66,6 @@ function getTasksForEnergy(tasks: Task[], energy: EnergyLevel, subjects: Subject
 export function EnergyCheckinModal({ open, onOpenChange, tasks, subjects }: EnergyCheckinModalProps) {
   const [selectedEnergy, setSelectedEnergy] = useState<EnergyLevel | null>(null)
   const [saving, setSaving] = useState(false)
-  const router = useRouter()
 
   const handleSelect = async (level: EnergyLevel) => {
     setSelectedEnergy(level)
@@ -97,7 +95,7 @@ export function EnergyCheckinModal({ open, onOpenChange, tasks, subjects }: Ener
     handleClose()
   }
 
-  const suggestedTasks = selectedEnergy ? getTasksForEnergy(tasks, selectedEnergy, subjects) : []
+  const suggestedTasks = selectedEnergy ? getTasksForEnergy(tasks, selectedEnergy) : []
 
   const getSubjectName = (subjectId: string | null) => {
     if (!subjectId) return null
@@ -108,14 +106,9 @@ export function EnergyCheckinModal({ open, onOpenChange, tasks, subjects }: Ener
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="glass-card border-[var(--border)] bg-[var(--card)] max-w-lg p-0 gap-0">
         <DialogHeader className="p-6 pb-4">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-semibold text-[var(--card-fg)]">
-              {selectedEnergy ? 'Suggested Tasks' : "What's your energy level right now?"}
-            </DialogTitle>
-            <Button variant="ghost" size="icon" onClick={handleDismiss} className="h-8 w-8 text-[var(--muted-fg)] hover:text-[var(--card-fg)]">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+          <DialogTitle className="text-lg font-semibold text-[var(--card-fg)]">
+            {selectedEnergy ? 'Suggested Tasks' : "What's your energy level right now?"}
+          </DialogTitle>
           {!selectedEnergy && (
             <p className="text-sm text-[var(--muted-fg)] mt-1">
               Pick your current energy to get matched with the right tasks.

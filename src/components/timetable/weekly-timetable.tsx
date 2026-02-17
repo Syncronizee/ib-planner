@@ -258,7 +258,7 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md border-2 border-[var(--border)] bg-[var(--card)]">
           <DialogHeader>
             <DialogTitle>{editing ? 'Edit Class' : 'Add Class'}</DialogTitle>
             <DialogDescription className="sr-only">
@@ -269,7 +269,7 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
             <div className="space-y-2">
               <Label>Class Type</Label>
               <Select value={entryType} onValueChange={(value) => setEntryType(value as 'subject' | 'custom' | 'misc')}>
-                <SelectTrigger>
+                <SelectTrigger className="border-2 border-[var(--border)] bg-[var(--card)] text-[var(--card-fg)]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -284,7 +284,7 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
               <div className="space-y-2">
                 <Label>Subject</Label>
                 <Select value={subjectId} onValueChange={setSubjectId}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-2 border-[var(--border)] bg-[var(--card)] text-[var(--card-fg)]">
                     <SelectValue placeholder="Select a subject" />
                   </SelectTrigger>
                   <SelectContent>
@@ -308,6 +308,7 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
                   placeholder={entryType === 'misc' ? 'e.g. Miscellaneous Class' : 'e.g. TOK Session'}
                   value={entryName}
                   onChange={(e) => setEntryName(e.target.value)}
+                  className="border-2 border-[var(--border)] bg-[var(--card)] text-[var(--card-fg)]"
                 />
               </div>
             )}
@@ -332,7 +333,7 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
             <div className="space-y-2">
               <Label>Day</Label>
               <Select value={dayOfWeek.toString()} onValueChange={(v) => setDayOfWeek(parseInt(v))}>
-                <SelectTrigger>
+                <SelectTrigger className="border-2 border-[var(--border)] bg-[var(--card)] text-[var(--card-fg)]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -352,6 +353,7 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
+                  className="border-2 border-[var(--border)] bg-[var(--card)] text-[var(--card-fg)]"
                 />
               </div>
               <div className="space-y-2">
@@ -360,6 +362,7 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
+                  className="border-2 border-[var(--border)] bg-[var(--card)] text-[var(--card-fg)]"
                 />
               </div>
             </div>
@@ -370,6 +373,7 @@ export function WeeklyTimetable({ entries, subjects, onEntriesChange }: WeeklyTi
                 placeholder="e.g. Room 201, Lab 3"
                 value={room}
                 onChange={(e) => setRoom(e.target.value)}
+                className="border-2 border-[var(--border)] bg-[var(--card)] text-[var(--card-fg)]"
               />
             </div>
 

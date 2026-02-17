@@ -38,6 +38,7 @@ import {
 } from 'lucide-react'
 import { format, isPast, isToday, isTomorrow } from 'date-fns'
 import { useRouter } from 'next/navigation'
+import { getDesktopUserId, invokeDesktopDb, isManualOfflineMode } from '@/lib/electron/offline'
 
 interface TasksSectionProps {
   initialTasks: Task[]
@@ -59,6 +60,34 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
 
   const handleAdd = async () => {
     if (!title.trim()) return
+
+    if (await isManualOfflineMode()) {
+      const userId = await getDesktopUserId()
+      if (!userId) {
+        return
+      }
+
+      const localTask = await invokeDesktopDb<Task>('createTask', [
+        userId,
+        {
+          title: title.trim(),
+          due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
+          priority,
+          subject_id: subjectId || null,
+          category,
+          is_completed: false,
+        },
+      ])
+
+      setTasks((prev) => [...prev, localTask])
+      setTitle('')
+      setDueDate(undefined)
+      setPriority('medium')
+      setSubjectId('')
+      setCategory('homework')
+      setAdding(false)
+      return
+    }
 
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -101,6 +130,33 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
       updateData.completed_at = null
     }
 
+    if (await isManualOfflineMode()) {
+      const userId = await getDesktopUserId()
+      if (!userId) {
+        return
+      }
+
+      const updatedTask = await invokeDesktopDb<Task>('updateTask', [
+        task.id,
+        userId,
+        updateData,
+      ])
+
+      const updatedTasks = tasks.map((t) => (t.id === task.id ? updatedTask : t))
+      setTasks(updatedTasks)
+      window.dispatchEvent(new CustomEvent('tasks-updated', { detail: updatedTasks }))
+
+      if (task.linked_assessment_id) {
+        await invokeDesktopDb('updateAssessment', [
+          task.linked_assessment_id,
+          userId,
+          { is_completed: newState },
+        ])
+      }
+
+      return
+    }
+
     const { error } = await supabase
       .from('tasks')
       .update(updateData)
@@ -121,6 +177,17 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
   }
 
   const handleDelete = async (task: Task) => {
+    if (await isManualOfflineMode()) {
+      const userId = await getDesktopUserId()
+      if (!userId) {
+        return
+      }
+
+      await invokeDesktopDb('deleteTask', [task.id, userId])
+      setTasks((prev) => prev.filter((t) => t.id !== task.id))
+      return
+    }
+
     const supabase = createClient()
     const { error } = await supabase.from('tasks').delete().eq('id', task.id)
     if (!error) setTasks(tasks.filter(t => t.id !== task.id))
@@ -241,7 +308,7 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
           />
           
           <div className="grid grid-cols-2 gap-2">
-            <Select value={category} onValueChange={(v: any) => setCategory(v)}>
+            <Select value={category} onValueChange={(v: Task['category']) => setCategory(v)}>
               <SelectTrigger className="h-10 text-xs bg-[var(--card)] border-[var(--border)] text-[var(--card-fg)]">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
@@ -283,7 +350,7 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
               </PopoverContent>
             </Popover>
 
-            <Select value={priority} onValueChange={(v: any) => setPriority(v)}>
+            <Select value={priority} onValueChange={(v: Task['priority']) => setPriority(v)}>
               <SelectTrigger className="h-10 text-xs bg-[var(--card)] border-[var(--border)] text-[var(--card-fg)]">
                 <SelectValue />
               </SelectTrigger>

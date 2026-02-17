@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { format, isPast, isToday } from 'date-fns'
 import { useRouter } from 'next/navigation'
+import { getDesktopUserId, invokeDesktopDb, isManualOfflineMode } from '@/lib/electron/offline'
 
 interface HomeworkTabProps {
   subject: Subject
@@ -54,6 +55,21 @@ export function HomeworkTab({ subject }: HomeworkTabProps) {
 
   const fetchTasks = useCallback(async () => {
     setLoading(true)
+
+    if (await isManualOfflineMode()) {
+      const userId = await getDesktopUserId()
+      if (!userId) {
+        setTasks([])
+        setLoading(false)
+        return
+      }
+
+      const localTasks = await invokeDesktopDb<Task[]>('getTasksBySubject', [userId, subject.id])
+      setTasks(localTasks)
+      setLoading(false)
+      return
+    }
+
     const supabase = createClient()
 
     const { data } = await supabase
@@ -67,7 +83,7 @@ export function HomeworkTab({ subject }: HomeworkTabProps) {
   }, [subject.id])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     fetchTasks()
   }, [fetchTasks])
 
@@ -96,6 +112,34 @@ export function HomeworkTab({ subject }: HomeworkTabProps) {
   }
 
   const handleSave = async () => {
+    if (await isManualOfflineMode()) {
+      const userId = await getDesktopUserId()
+      if (!userId) {
+        return
+      }
+
+      const taskData = {
+        title,
+        description: description || null,
+        due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
+        category,
+        priority,
+        subject_id: subject.id,
+      }
+
+      if (editing) {
+        const updatedTask = await invokeDesktopDb<Task>('updateTask', [editing.id, userId, taskData])
+        setTasks(tasks.map(t => t.id === editing.id ? updatedTask : t))
+      } else {
+        const createdTask = await invokeDesktopDb<Task>('createTask', [userId, { ...taskData, is_completed: false }])
+        setTasks([...tasks, createdTask])
+      }
+
+      resetForm()
+      setAdding(false)
+      return
+    }
+
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -141,6 +185,22 @@ export function HomeworkTab({ subject }: HomeworkTabProps) {
   }
 
   const handleToggleComplete = async (task: Task) => {
+    if (await isManualOfflineMode()) {
+      const userId = await getDesktopUserId()
+      if (!userId) {
+        return
+      }
+
+      const updatedTask = await invokeDesktopDb<Task>('updateTask', [
+        task.id,
+        userId,
+        { is_completed: !task.is_completed },
+      ])
+
+      setTasks(tasks.map(t => t.id === task.id ? updatedTask : t))
+      return
+    }
+
     const supabase = createClient()
     const newCompletedState = !task.is_completed
 
@@ -157,6 +217,17 @@ export function HomeworkTab({ subject }: HomeworkTabProps) {
   }
 
   const handleDelete = async (task: Task) => {
+    if (await isManualOfflineMode()) {
+      const userId = await getDesktopUserId()
+      if (!userId) {
+        return
+      }
+
+      await invokeDesktopDb('deleteTask', [task.id, userId])
+      setTasks(tasks.filter(t => t.id !== task.id))
+      return
+    }
+
     const supabase = createClient()
 
     const { error } = await supabase

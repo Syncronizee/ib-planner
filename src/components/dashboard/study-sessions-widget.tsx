@@ -68,15 +68,15 @@ export function StudySessionsWidget({ sessions, subjects, tasks, scheduledSessio
         <div className="grid grid-cols-2 gap-2 mb-4">
           <Button
             onClick={() => setStartOpen(true)}
-            className="h-10 rounded-xl bg-[var(--accent)] text-[var(--accent-fg)] hover:brightness-110"
+            className="h-[4.5rem] rounded-2xl bg-[var(--accent)] text-[var(--accent-fg)] hover:brightness-110 flex-col gap-1 text-xs sm:text-sm leading-tight text-center"
           >
-            <Play className="h-4 w-4 mr-2" />
+            <Play className="h-4 w-4" />
             Start Session
           </Button>
           <Button
             onClick={() => setQuickLogOpen(true)}
             variant="outline"
-            className="h-10 rounded-xl bg-[var(--muted)] border-[var(--border)] text-[var(--card-fg)] hover:bg-[var(--card)]"
+            className="h-[4.5rem] rounded-2xl bg-[var(--muted)] border-[var(--border)] text-[var(--card-fg)] hover:bg-[var(--card)] flex-col gap-1 text-xs sm:text-sm leading-tight text-center"
           >
             Quick Log
           </Button>

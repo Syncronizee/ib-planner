@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { DEFAULT_THEME, THEME_STORAGE_KEY, ThemeId, themeOptions, themeVars } from './themes'
 
 type ThemeProviderProps = {
@@ -49,15 +49,15 @@ export function ThemeProvider({
     setMounted(true)
   }, [defaultTheme, storageKey])
 
-  const setTheme = (nextTheme: ThemeId) => {
+  const setTheme = useCallback((nextTheme: ThemeId) => {
     setThemeState(nextTheme)
     applyTheme(nextTheme)
     localStorage.setItem(storageKey, nextTheme)
-  }
+  }, [storageKey])
 
   const value = useMemo(
     () => ({ theme, setTheme, themes: themeOptions, mounted }),
-    [theme, mounted]
+    [theme, setTheme, mounted]
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

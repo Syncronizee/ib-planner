@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BookOpen } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 interface TOKNotesSectionProps {
   initialNotes: TOKNote[]
@@ -16,7 +15,6 @@ interface TOKNotesSectionProps {
 export function TOKNotesSection({ initialNotes }: TOKNotesSectionProps) {
   const [notes, setNotes] = useState<TOKNote[]>(initialNotes)
   const [saving, setSaving] = useState(false)
-  const router = useRouter()
 
   const getNote = (type: 'aok' | 'wok', name: string) => {
     return notes.find(n => n.category_type === type && n.category_name === name)?.content || ''

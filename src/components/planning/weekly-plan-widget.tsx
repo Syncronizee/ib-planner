@@ -9,10 +9,8 @@ import {
   CalendarDays,
   Check,
   Circle,
-  ArrowRight,
 } from 'lucide-react'
-import { format, startOfWeek, isAfter, isBefore, addDays } from 'date-fns'
-import { useRouter } from 'next/navigation'
+import { format, startOfWeek } from 'date-fns'
 import Link from 'next/link'
 
 interface WeeklyPlanWidgetProps {
@@ -23,7 +21,6 @@ interface WeeklyPlanWidgetProps {
 
 export function WeeklyPlanWidget({ plan, tasks, subjects }: WeeklyPlanWidgetProps) {
   const [localPlan, setLocalPlan] = useState(plan)
-  const router = useRouter()
 
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })
   const isCurrentWeek = localPlan && localPlan.week_start_date === format(weekStart, 'yyyy-MM-dd')

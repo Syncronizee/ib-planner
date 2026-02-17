@@ -108,7 +108,7 @@ export function StudySessionSetupDialog({
     loadLatestEnergy()
   }, [])
 
-  /* eslint-disable react-hooks/set-state-in-effect */
+   
   useEffect(() => {
     if (!open) return
 
@@ -122,7 +122,7 @@ export function StudySessionSetupDialog({
     setScheduleFor('')
     setSavingSchedule(false)
   }, [open, initialObjective, initialSubjectId, latestEnergy])
-  /* eslint-enable react-hooks/set-state-in-effect */
+   
 
   const filteredTasks = useMemo(() => {
     if (!subjectId) return tasks.filter((task) => !task.is_completed)
@@ -202,14 +202,15 @@ export function StudySessionSetupDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-card border-[var(--border)] bg-[var(--card)] max-w-md p-0 gap-0">
+      <DialogContent className="glass-card border-[var(--border)] bg-[var(--card)] w-[min(96vw,56rem)] max-w-[56rem] p-0 gap-0">
         <DialogHeader className="p-6 pb-4">
           <DialogTitle className="text-lg font-semibold text-[var(--card-fg)]">{title}</DialogTitle>
           <p className="text-xs text-[var(--muted-fg)] mt-1">{description}</p>
         </DialogHeader>
 
-        <div className="px-6 pb-6 space-y-4">
-          <div className="space-y-1.5">
+        <div className="px-5 sm:px-6 pb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1.5 sm:col-span-2">
             <label className="text-xs font-medium text-[var(--muted-fg)] uppercase tracking-wider">Subject</label>
             {lockSubject ? (
               <div className="h-9 rounded-xl border border-[var(--border)] bg-[var(--muted)]/60 px-3 text-sm text-[var(--card-fg)] flex items-center">
@@ -233,37 +234,35 @@ export function StudySessionSetupDialog({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-[var(--muted-fg)] uppercase tracking-wider">Energy Check</label>
-              <Select value={energyCheck} onValueChange={(value: EnergyLevel) => setEnergyCheck(value)}>
-                <SelectTrigger className="w-full bg-[var(--card)] border-[var(--border)] text-[var(--card-fg)]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-[var(--muted-fg)] uppercase tracking-wider">Session Type</label>
-              <Select value={sessionType} onValueChange={(value: SessionType) => setSessionType(value)}>
-                <SelectTrigger className="w-full bg-[var(--card)] border-[var(--border)] text-[var(--card-fg)]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="new_content">New Content</SelectItem>
-                  <SelectItem value="practice">Practice</SelectItem>
-                  <SelectItem value="review">Review</SelectItem>
-                  <SelectItem value="passive">Passive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[var(--muted-fg)] uppercase tracking-wider">Energy Check</label>
+            <Select value={energyCheck} onValueChange={(value: EnergyLevel) => setEnergyCheck(value)}>
+              <SelectTrigger className="w-full bg-[var(--card)] border-[var(--border)] text-[var(--card-fg)]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[var(--muted-fg)] uppercase tracking-wider">Session Type</label>
+            <Select value={sessionType} onValueChange={(value: SessionType) => setSessionType(value)}>
+              <SelectTrigger className="w-full bg-[var(--card)] border-[var(--border)] text-[var(--card-fg)]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="new_content">New Content</SelectItem>
+                <SelectItem value="practice">Practice</SelectItem>
+                <SelectItem value="review">Review</SelectItem>
+                <SelectItem value="passive">Passive</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 sm:col-span-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-medium text-[var(--muted-fg)] uppercase tracking-wider">Task (optional)</label>
               <span className="text-[10px] text-[var(--muted-fg)] flex items-center gap-1">
@@ -298,7 +297,7 @@ export function StudySessionSetupDialog({
           </div>
 
           {!taskId && (
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-2">
               <label className="text-xs font-medium text-[var(--muted-fg)] uppercase tracking-wider">
                 Objective / custom task (optional)
               </label>
@@ -313,11 +312,11 @@ export function StudySessionSetupDialog({
           )}
 
           {!taskId && (
-            <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--muted)]/45 p-3">
+            <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--muted)]/45 p-3 sm:col-span-2">
               <label className="text-xs font-medium text-[var(--muted-fg)] uppercase tracking-wider">
                 Task Bank Suggestions
               </label>
-              <div className="space-y-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {taskBankSuggestions.map((suggestion) => (
                   <button
                     key={suggestion}
@@ -337,7 +336,7 @@ export function StudySessionSetupDialog({
 
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-[var(--muted-fg)] uppercase tracking-wider">Duration Goal</label>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {DURATION_PRESETS.map((preset) => (
                 <button
                   key={preset.value}
@@ -345,7 +344,7 @@ export function StudySessionSetupDialog({
                     setDurationGoal(preset.value)
                     setCustomDuration('')
                   }}
-                  className={`py-2 rounded-xl text-xs font-medium transition-smooth border ${
+                  className={`h-11 rounded-xl text-xs font-medium transition-smooth border ${
                     durationGoal === preset.value && !customDuration
                       ? 'bg-[var(--accent)] text-[var(--accent-fg)] border-[var(--accent)]'
                       : 'bg-[var(--muted)] text-[var(--muted-fg)] border-[var(--border)] hover:bg-[var(--card)]'
@@ -375,20 +374,21 @@ export function StudySessionSetupDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <Button onClick={handleStartSession} disabled={!subjectId} className="h-11 rounded-xl bg-[var(--accent)] text-[var(--accent-fg)] hover:brightness-110">
-              <Play className="h-4 w-4 mr-2" />
+          <div className="grid grid-cols-2 gap-2 sm:col-span-2">
+            <Button onClick={handleStartSession} disabled={!subjectId} className="h-14 rounded-2xl bg-[var(--accent)] text-[var(--accent-fg)] hover:brightness-110 flex-col gap-1">
+              <Play className="h-4 w-4" />
               Start Now
             </Button>
             <Button
               variant="outline"
               onClick={handleScheduleSession}
               disabled={!subjectId || !scheduleFor || savingSchedule}
-              className="h-11 rounded-xl bg-[var(--muted)] border-[var(--border)] text-[var(--card-fg)] hover:bg-[var(--card)]"
+              className="h-14 rounded-2xl bg-[var(--muted)] border-[var(--border)] text-[var(--card-fg)] hover:bg-[var(--card)] flex-col gap-1"
             >
-              <CalendarClock className="h-4 w-4 mr-2" />
+              <CalendarClock className="h-4 w-4" />
               {savingSchedule ? 'Saving...' : 'Schedule'}
             </Button>
+          </div>
           </div>
         </div>
       </DialogContent>

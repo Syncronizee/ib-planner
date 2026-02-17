@@ -50,20 +50,20 @@ export function DashboardOverviewCard({
             {dueTodayCount} due today, {overdueCount} overdue. Prioritize the next deadline and lock in a focused session.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="w-full lg:w-auto grid grid-cols-2 sm:grid-cols-3 gap-2">
           <Button
             onClick={() => setFocusOpen(true)}
-            className="token-btn-accent rounded-xl px-4 py-2 text-sm font-medium transition-smooth inline-flex items-center"
+            className="token-btn-accent rounded-2xl h-[4.5rem] px-2 text-xs sm:text-sm font-medium transition-smooth inline-flex flex-col justify-center items-center gap-1 leading-tight text-center"
           >
-            <Play className="h-4 w-4 mr-1.5" />
+            <Play className="h-4 w-4" />
             Start Focus
           </Button>
-          <Link href="/dashboard/calendar?intent=schedule-study" className="btn-glass rounded-xl px-4 py-2 text-sm font-medium transition-smooth inline-flex items-center">
-            <CalendarClock className="h-4 w-4 mr-1.5" />
+          <Link href="/dashboard/calendar?intent=schedule-study" className="btn-glass rounded-2xl h-[4.5rem] px-2 text-xs sm:text-sm font-medium transition-smooth inline-flex flex-col justify-center items-center gap-1 leading-tight text-center">
+            <CalendarClock className="h-4 w-4" />
             Schedule Study
           </Link>
-          <Link href="/dashboard" className="btn-glass rounded-xl px-4 py-2 text-sm font-medium transition-smooth inline-flex items-center">
-            <Plus className="h-4 w-4 mr-1.5" />
+          <Link href="/dashboard" className="btn-glass rounded-2xl h-[4.5rem] px-2 text-xs sm:text-sm font-medium transition-smooth inline-flex flex-col justify-center items-center gap-1 leading-tight text-center">
+            <Plus className="h-4 w-4" />
             Add Task
           </Link>
         </div>

@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { BookOpen, Clock, Zap, Gauge, Battery, X } from 'lucide-react'
+import { BookOpen, Zap, Gauge, Battery, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 interface SessionLoggerModalProps {

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 
 const features = [
   {
@@ -51,8 +52,12 @@ export default async function HomePage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const loginHref = user ? '/dashboard' : '/login'
-  const signupHref = user ? '/dashboard' : '/signup'
+  if (user) {
+    redirect('/dashboard')
+  }
+
+  const loginHref = '/login'
+  const signupHref = '/signup'
 
   return (
     <div className="min-h-screen app-bg text-[var(--fg)]">
@@ -62,7 +67,7 @@ export default async function HomePage() {
             <div className="h-8 w-8 rounded-xl border border-[var(--border)] bg-[var(--muted)]/70 flex items-center justify-center">
               <span className="h-3 w-3 rounded-full bg-[var(--accent)]" />
             </div>
-            <span className="font-semibold text-[var(--fg)]">IB Planner</span>
+            <span className="font-semibold text-[var(--fg)]">Scholar Board</span>
           </div>
           <div className="flex items-center gap-2">
             <Link href={loginHref}>
@@ -93,7 +98,7 @@ export default async function HomePage() {
                 Stay ahead of IB deadlines.
               </h1>
               <p className="mt-5 text-base sm:text-lg text-[var(--muted-fg)] max-w-xl">
-                IB Planner combines subjects, tasks, focus sessions, proactive scoring, and calendar scheduling into one calm workspace.
+                Scholar Board combines subjects, tasks, focus sessions, proactive scoring, and calendar scheduling into one calm workspace.
                 You spend less time organizing and more time making progress.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
