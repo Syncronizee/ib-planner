@@ -78,7 +78,17 @@ declare global {
         getVersion: () => Promise<string>
         getPlatform: () => Promise<NodeJS.Platform>
         openExternal: (url: string) => Promise<void>
-        checkUpdate: () => Promise<{ supported: boolean }>
+        checkUpdate: () => Promise<{
+          supported: boolean
+          checking?: boolean
+          updateAvailable?: boolean
+          downloaded?: boolean
+          currentVersion?: string
+          latestVersion?: string | null
+          message?: string
+          error?: string | null
+        }>
+        applyUpdate: () => Promise<boolean>
         quit: () => Promise<void>
         minimize: () => Promise<void>
         maximize: () => Promise<void>

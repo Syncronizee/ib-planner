@@ -5,8 +5,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Replace 0s with Os for Doto font display
+// Keep numeric text literal across themes/fonts.
 export function formatDotoNumber(value: number | string | null | undefined): string {
   if (value === null || value === undefined) return '-'
-  return String(value).replace(/0/g, 'O')
+  return String(value)
 }

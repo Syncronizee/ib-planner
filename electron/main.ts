@@ -1,8 +1,9 @@
-import { app, BrowserWindow, ipcMain, net, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, net, session, shell } from 'electron'
 import { fork, type ChildProcess } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
 import { config as loadEnv } from 'dotenv'
+import { autoUpdater } from 'electron-updater'
 import { closeDatabase, initializeDatabase } from './database/connection'
 import { LocalDatabaseService, type RowRecord } from './database/local-database'
 import { SyncManager } from './sync/sync-manager'
@@ -44,6 +45,29 @@ let mainWindow: BrowserWindow | null = null
 let manualOfflineMode = false
 let requestBlockerInstalled = false
 let networkWatchTimer: NodeJS.Timeout | null = null
+let updateInitialized = false
+
+type AppUpdateState = {
+  supported: boolean
+  checking: boolean
+  updateAvailable: boolean
+  downloaded: boolean
+  currentVersion: string
+  latestVersion: string | null
+  message: string
+  error: string | null
+}
+
+const appUpdateState: AppUpdateState = {
+  supported: false,
+  checking: false,
+  updateAvailable: false,
+  downloaded: false,
+  currentVersion: app.getVersion(),
+  latestVersion: null,
+  message: 'Updates are only available in packaged builds.',
+  error: null,
+}
 
 function formatError(error: unknown) {
   if (error instanceof Error) {
@@ -283,6 +307,96 @@ function broadcast<T>(channel: string, payload: T) {
   }
 }
 
+function getUpdateState() {
+  return { ...appUpdateState }
+}
+
+function setUpdateState(patch: Partial<AppUpdateState>) {
+  Object.assign(appUpdateState, patch)
+}
+
+function initializeAutoUpdater() {
+  if (updateInitialized || !app.isPackaged) {
+    return
+  }
+
+  updateInitialized = true
+  setUpdateState({
+    supported: true,
+    message: 'Checking for updates…',
+    error: null,
+  })
+
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = true
+
+  autoUpdater.on('checking-for-update', () => {
+    setUpdateState({
+      checking: true,
+      message: 'Checking for updates…',
+      error: null,
+    })
+  })
+
+  autoUpdater.on('update-available', (info) => {
+    setUpdateState({
+      checking: false,
+      updateAvailable: true,
+      downloaded: false,
+      latestVersion: info.version,
+      message: `Update ${info.version} is downloading…`,
+      error: null,
+    })
+  })
+
+  autoUpdater.on('update-not-available', () => {
+    setUpdateState({
+      checking: false,
+      updateAvailable: false,
+      downloaded: false,
+      latestVersion: null,
+      message: 'You are on the latest version.',
+      error: null,
+    })
+  })
+
+  autoUpdater.on('update-downloaded', async (info) => {
+    setUpdateState({
+      checking: false,
+      updateAvailable: true,
+      downloaded: true,
+      latestVersion: info.version,
+      message: `Update ${info.version} is ready to install.`,
+      error: null,
+    })
+
+    const result = await dialog.showMessageBox({
+      type: 'info',
+      title: 'Update Ready',
+      message: `Version ${info.version} has been downloaded.`,
+      detail: 'Restart now to apply the update.',
+      buttons: ['Restart now', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+    })
+
+    if (result.response === 0) {
+      autoUpdater.quitAndInstall()
+    }
+  })
+
+  autoUpdater.on('error', (error) => {
+    setUpdateState({
+      checking: false,
+      error: error.message,
+      message: 'Update check failed.',
+    })
+    writeStartupLog('Auto-updater error', error)
+  })
+
+  void autoUpdater.checkForUpdates()
+}
+
 async function createMainWindow() {
   const window = new BrowserWindow({
     width: 1440,
@@ -401,7 +515,30 @@ function registerIpcHandlers() {
   ipcMain.handle(IPC_CHANNELS.APP.OPEN_EXTERNAL, async (_event, url: string) => {
     await shell.openExternal(url)
   })
-  ipcMain.handle(IPC_CHANNELS.APP.CHECK_UPDATE, async () => ({ supported: false }))
+  ipcMain.handle(IPC_CHANNELS.APP.CHECK_UPDATE, async () => {
+    if (!app.isPackaged) {
+      return getUpdateState()
+    }
+
+    initializeAutoUpdater()
+    try {
+      await autoUpdater.checkForUpdates()
+    } catch (error) {
+      setUpdateState({
+        checking: false,
+        error: error instanceof Error ? error.message : String(error),
+        message: 'Update check failed.',
+      })
+    }
+    return getUpdateState()
+  })
+  ipcMain.handle(IPC_CHANNELS.APP.APPLY_UPDATE, async () => {
+    if (!app.isPackaged || !appUpdateState.downloaded) {
+      return false
+    }
+    autoUpdater.quitAndInstall()
+    return true
+  })
   ipcMain.handle(IPC_CHANNELS.APP.QUIT, () => app.quit())
   ipcMain.handle(IPC_CHANNELS.APP.MINIMIZE, () => {
     mainWindow?.minimize()
@@ -595,6 +732,7 @@ app.whenReady().then(async () => {
   registerSyncEventForwarding()
   registerOnlineWatch()
   await createMainWindow()
+  initializeAutoUpdater()
   writeStartupLog('Electron app boot sequence completed')
 
   app.on('activate', () => {

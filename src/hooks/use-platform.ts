@@ -19,12 +19,14 @@ export function isElectronRuntime() {
 }
 
 export function usePlatform() {
-  const [isElectron] = useState(() => detectElectronRuntime())
-  const [isOnline, setIsOnline] = useState(() =>
-    typeof navigator === 'undefined' ? true : navigator.onLine
-  )
+  // Keep SSR and first client render consistent, then detect runtime on mount.
+  const [isElectron, setIsElectron] = useState(false)
+  const [isOnline, setIsOnline] = useState(true)
 
   useEffect(() => {
+    setIsElectron(detectElectronRuntime())
+    setIsOnline(navigator.onLine)
+
     const updateOnline = () => {
       setIsOnline(navigator.onLine)
     }

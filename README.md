@@ -59,6 +59,15 @@ pnpm electron:build:mac:x64
 pnpm electron:build:win
 ```
 
+## Desktop Auto-Updates
+
+Packaged desktop builds can check/download updates from GitHub Releases.
+
+- Publish a new release with updated artifacts (`.dmg`, `.zip`, `.exe`).
+- Keep `electron-builder.yml` `publish` pointing to your GitHub repo.
+- For CI publishing, set `GH_TOKEN` with repo release permissions.
+- Users can use `Sync Status -> Check updates` in-app and restart when prompted.
+
 ## Install Instructions
 
 See `INSTALL.md` for full install instructions and offline/sync behavior notes.

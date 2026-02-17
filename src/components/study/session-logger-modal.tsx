@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { BookOpen, Zap, Gauge, Battery, X } from 'lucide-react'
+import { BookOpen, Zap, Gauge, Battery } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 interface SessionLoggerModalProps {
@@ -83,14 +83,9 @@ export function SessionLoggerModal({ open, onOpenChange, subjects }: SessionLogg
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="glass-card border-[var(--border)] bg-[var(--card)] max-w-md p-0 gap-0">
         <DialogHeader className="p-6 pb-4">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-semibold text-[var(--card-fg)]">
-              Log Study Session
-            </DialogTitle>
-            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="h-8 w-8 text-[var(--muted-fg)] hover:text-[var(--card-fg)]">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+          <DialogTitle className="text-lg font-semibold text-[var(--card-fg)]">
+            Log Study Session
+          </DialogTitle>
         </DialogHeader>
 
         <div className="px-6 pb-6 space-y-4">

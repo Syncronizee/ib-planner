@@ -46,6 +46,7 @@ export const IPC_CHANNELS = {
     GET_PLATFORM: 'app:getPlatform',
     OPEN_EXTERNAL: 'app:openExternal',
     CHECK_UPDATE: 'app:checkUpdate',
+    APPLY_UPDATE: 'app:applyUpdate',
     QUIT: 'app:quit',
     MINIMIZE: 'app:minimize',
     MAXIMIZE: 'app:maximize',

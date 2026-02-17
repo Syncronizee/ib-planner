@@ -110,7 +110,18 @@ const electronApi = {
     getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.APP.GET_VERSION) as Promise<string>,
     getPlatform: () => ipcRenderer.invoke(IPC_CHANNELS.APP.GET_PLATFORM) as Promise<NodeJS.Platform>,
     openExternal: (url: string) => ipcRenderer.invoke(IPC_CHANNELS.APP.OPEN_EXTERNAL, url) as Promise<void>,
-    checkUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.APP.CHECK_UPDATE) as Promise<{ supported: boolean }>,
+    checkUpdate: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.APP.CHECK_UPDATE) as Promise<{
+        supported: boolean
+        checking?: boolean
+        updateAvailable?: boolean
+        downloaded?: boolean
+        currentVersion?: string
+        latestVersion?: string | null
+        message?: string
+        error?: string | null
+      }>,
+    applyUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.APP.APPLY_UPDATE) as Promise<boolean>,
     quit: () => ipcRenderer.invoke(IPC_CHANNELS.APP.QUIT) as Promise<void>,
     minimize: () => ipcRenderer.invoke(IPC_CHANNELS.APP.MINIMIZE) as Promise<void>,
     maximize: () => ipcRenderer.invoke(IPC_CHANNELS.APP.MAXIMIZE) as Promise<void>,

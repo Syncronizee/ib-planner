@@ -2,12 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { LogOut, Calendar, LayoutDashboard, Compass, Lightbulb, BookOpen, Sparkles } from 'lucide-react'
+import { LogOut, Calendar, LayoutDashboard, Compass, Lightbulb, BookOpen, Sparkles, RefreshCw, Download } from 'lucide-react'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import type { ThemeId } from '@/components/theme/themes'
 import { SyncStatus } from '@/components/sync-status'
+import { usePlatform } from '@/hooks/use-platform'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 interface HeaderProps {
   email: string
@@ -17,11 +20,57 @@ export function Header({ email }: HeaderProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { theme, setTheme, themes } = useTheme()
+  const { isElectron } = usePlatform()
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [updateStatus, setUpdateStatus] = useState('Check for updates')
+  const [updateReady, setUpdateReady] = useState(false)
 
   const handleSignOut = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/auth')
+  }
+
+  const handleCheckUpdates = async () => {
+    if (!window.electronAPI?.app?.checkUpdate || checkingUpdate) {
+      return
+    }
+
+    setCheckingUpdate(true)
+    setUpdateStatus('Checking...')
+
+    try {
+      const result = await window.electronAPI.app.checkUpdate()
+      if (result.error) {
+        setUpdateStatus('Update check failed')
+        setUpdateReady(false)
+      } else if (result.downloaded) {
+        setUpdateStatus('Update downloaded')
+        setUpdateReady(true)
+      } else if (result.updateAvailable) {
+        setUpdateStatus('Downloading update...')
+        setUpdateReady(false)
+      } else {
+        setUpdateStatus('Up to date')
+        setUpdateReady(false)
+      }
+    } catch {
+      setUpdateStatus('Update check failed')
+      setUpdateReady(false)
+    } finally {
+      setCheckingUpdate(false)
+    }
+  }
+
+  const handleApplyUpdate = async () => {
+    if (!window.electronAPI?.app?.applyUpdate) {
+      return
+    }
+
+    const applied = await window.electronAPI.app.applyUpdate()
+    if (!applied) {
+      setUpdateStatus('No downloaded update yet')
+    }
   }
 
   const navItems = [
@@ -89,6 +138,47 @@ export function Header({ email }: HeaderProps) {
               ))}
             </select>
           </div>
+          {isElectron ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="hidden lg:inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--muted-fg)] hover:text-[var(--fg)] hover:bg-[var(--muted)] transition-smooth"
+                  aria-label="Open app updates menu"
+                  title="App updates"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className="w-56 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--card-fg)] p-3"
+              >
+                <p className="text-xs text-[var(--muted-fg)] mb-2">{updateStatus}</p>
+                <div className="flex items-center justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void handleCheckUpdates()}
+                    disabled={checkingUpdate}
+                    className="h-8 text-[var(--muted-fg)] hover:text-[var(--fg)]"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${checkingUpdate ? 'animate-spin' : ''}`} />
+                    Check
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void handleApplyUpdate()}
+                    disabled={!updateReady}
+                    className="h-8 text-[var(--muted-fg)] hover:text-[var(--fg)]"
+                  >
+                    Restart
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          ) : null}
           <span className="text-sm token-muted hidden lg:inline">{email}</span>
           <Button
             variant="ghost" 

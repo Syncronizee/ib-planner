@@ -76,3 +76,8 @@ linux:
     - target: deb
       arch:
         - x64
+
+publish:
+  provider: github
+  owner: Syncronizee
+  repo: ib-planner
