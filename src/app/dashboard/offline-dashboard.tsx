@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { format, startOfWeek } from 'date-fns'
 import { Header } from '@/components/layout/header'
 import { SubjectsSection } from './subjects-section'
@@ -42,6 +42,18 @@ type Snapshot = {
   scheduledSessions: ScheduledStudySession[]
   schoolEvents: SchoolEvent[]
   totalRows: number
+}
+
+const EMPTY_SNAPSHOT: Snapshot = {
+  subjects: [],
+  tasks: [],
+  assessments: [],
+  timetableEntries: [],
+  weeklyPlan: null,
+  studySessions: [],
+  scheduledSessions: [],
+  schoolEvents: [],
+  totalRows: 0,
 }
 
 async function loadLocalSnapshot(userId: string): Promise<Snapshot> {
@@ -113,27 +125,9 @@ async function loadLocalSnapshot(userId: string): Promise<Snapshot> {
 
 export function OfflineDashboard({ email }: OfflineDashboardProps) {
   const [resolvedEmail, setResolvedEmail] = useState(email)
-  const [subjects, setSubjects] = useState<Subject[]>([])
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [assessments, setAssessments] = useState<Assessment[]>([])
-  const [timetableEntries, setTimetableEntries] = useState<TimetableEntry[]>([])
-  const [currentWeekPlan, setCurrentWeekPlan] = useState<WeeklyPlan | null>(null)
-  const [studySessions, setStudySessions] = useState<StudySession[]>([])
-  const [scheduledSessions, setScheduledSessions] = useState<ScheduledStudySession[]>([])
-  const [schoolEvents, setSchoolEvents] = useState<SchoolEvent[]>([])
+  const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY_SNAPSHOT)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  const applySnapshot = useCallback((snapshot: Snapshot) => {
-    setSubjects(snapshot.subjects)
-    setTasks(snapshot.tasks)
-    setAssessments(snapshot.assessments)
-    setTimetableEntries(snapshot.timetableEntries)
-    setCurrentWeekPlan(snapshot.weeklyPlan)
-    setStudySessions(snapshot.studySessions)
-    setScheduledSessions(snapshot.scheduledSessions)
-    setSchoolEvents(snapshot.schoolEvents)
-  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -160,7 +154,7 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
 
         let snapshot = await loadLocalSnapshot(userId)
         if (mounted) {
-          applySnapshot(snapshot)
+          setSnapshot(snapshot)
         }
 
         const isOnline = window.electronAPI?.platform?.isOnline
@@ -175,11 +169,12 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
           Boolean(window.electronAPI?.sync?.start) &&
           (snapshot.totalRows === 0 || !status?.lastSyncedAt)
 
+        // First-run bootstrap: if local cache is empty and online is available, pull once then reload from SQLite.
         if (shouldPrime && window.electronAPI?.sync?.start) {
           await window.electronAPI.sync.start()
           snapshot = await loadLocalSnapshot(userId)
           if (mounted) {
-            applySnapshot(snapshot)
+            setSnapshot(snapshot)
           }
         }
       } catch (cause) {
@@ -198,7 +193,18 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
     return () => {
       mounted = false
     }
-  }, [applySnapshot])
+  }, [])
+
+  const {
+    subjects,
+    tasks,
+    assessments,
+    timetableEntries,
+    weeklyPlan,
+    studySessions,
+    scheduledSessions,
+    schoolEvents,
+  } = snapshot
 
   const totalSubjects = subjects.length
   const subjectsWithGrades = useMemo(
@@ -283,7 +289,7 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="glass-card hover-lift overflow-hidden">
-                <WeeklyPlanWidget plan={currentWeekPlan} tasks={tasks} subjects={subjects} />
+                <WeeklyPlanWidget plan={weeklyPlan} tasks={tasks} subjects={subjects} />
               </div>
               <div className="glass-card hover-lift overflow-hidden">
                 <WeaknessIndicator subjects={subjects} tasks={tasks} />
