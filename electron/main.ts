@@ -14,6 +14,7 @@ import type { StoredAuthSession } from './shared-types'
 const isDev = !app.isPackaged
 const appHost = '127.0.0.1'
 const appPort = Number(process.env.PORT || '3789')
+const SAFE_EXTERNAL_PROTOCOLS = new Set(['https:', 'http:', 'mailto:'])
 
 const ALLOWED_DB_METHODS = new Set([
   'getSubjects',
@@ -154,6 +155,34 @@ function loadDesktopEnv() {
 
 function getProdAppUrl() {
   return `http://${appHost}:${appPort}`
+}
+
+function isSafeExternalUrl(rawUrl: string) {
+  try {
+    const parsed = new URL(rawUrl)
+    return SAFE_EXTERNAL_PROTOCOLS.has(parsed.protocol)
+  } catch {
+    return false
+  }
+}
+
+function isTrustedRendererUrl(rawUrl: string) {
+  try {
+    const parsed = new URL(rawUrl)
+    const prodOrigin = new URL(getProdAppUrl()).origin
+    if (parsed.origin === prodOrigin) {
+      return true
+    }
+
+    if (isDev) {
+      const devUrl = process.env.ELECTRON_START_URL || 'http://localhost:3000'
+      return parsed.origin === new URL(devUrl).origin
+    }
+
+    return false
+  } catch {
+    return false
+  }
 }
 
 async function waitForServerReady(url: string, timeoutMs = 15_000) {
@@ -426,13 +455,31 @@ async function createMainWindow() {
     }
   })
 
+  // Prevent untrusted renderer navigation and force external links to open in OS browser.
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (isSafeExternalUrl(url)) {
+      void shell.openExternal(url)
+    }
+    return { action: 'deny' }
+  })
+  window.webContents.on('will-navigate', (event, navigationUrl) => {
+    if (isTrustedRendererUrl(navigationUrl)) {
+      return
+    }
+
+    event.preventDefault()
+    if (isSafeExternalUrl(navigationUrl)) {
+      void shell.openExternal(navigationUrl)
+    }
+  })
+
   window.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     writeStartupLog('Window failed to load content', { errorCode, errorDescription, validatedURL })
   })
 
   if (isDev) {
     const devUrl = process.env.ELECTRON_START_URL || 'http://localhost:3000'
-    await window.loadURL(devUrl)
+    await window.loadURL(devUrl, { extraHeaders: 'x-electron-runtime: 1\n' })
     window.webContents.openDevTools({ mode: 'detach' })
     return
   }
@@ -446,7 +493,7 @@ async function createMainWindow() {
       throw new Error(`Timed out waiting for bundled server at ${prodUrl}`)
     }
 
-    await window.loadURL(prodUrl)
+    await window.loadURL(prodUrl, { extraHeaders: 'x-electron-runtime: 1\n' })
   } catch (error) {
     await loadStaticFallback(window, error)
   }
@@ -513,6 +560,10 @@ function registerIpcHandlers() {
   ipcMain.handle(IPC_CHANNELS.APP.GET_VERSION, () => app.getVersion())
   ipcMain.handle(IPC_CHANNELS.APP.GET_PLATFORM, () => process.platform)
   ipcMain.handle(IPC_CHANNELS.APP.OPEN_EXTERNAL, async (_event, url: string) => {
+    if (!isSafeExternalUrl(url)) {
+      throw new Error('Blocked unsafe external URL')
+    }
+
     await shell.openExternal(url)
   })
   ipcMain.handle(IPC_CHANNELS.APP.CHECK_UPDATE, async () => {

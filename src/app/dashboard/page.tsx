@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { headers } from 'next/headers'
 import { Header } from '@/components/layout/header'
 import { SubjectsSection } from './subjects-section'
 import { TasksSection } from './tasks-section'
@@ -15,14 +16,21 @@ import { SessionLoggerFab } from '@/components/study/session-logger-fab'
 import { GraduationCap, Target, TrendingUp, CheckSquare } from 'lucide-react'
 import { formatDotoNumber } from '@/lib/utils'
 import { format, startOfWeek } from 'date-fns'
+import { isElectronRequestHeaders } from '@/lib/electron/request'
+import { OfflineDashboard } from './offline-dashboard'
 
 export default async function DashboardPage() {
+  const isElectronRequest = isElectronRequestHeaders(await headers())
   const supabase = await createClient()
 
   const { data: { user }, error } = await supabase.auth.getUser()
 
   if (error || !user) {
-    redirect('/auth')
+    if (!isElectronRequest) {
+      redirect('/login')
+    }
+
+    return <OfflineDashboard email="" />
   }
 
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })

@@ -1,7 +1,14 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isElectronRequestHeaders } from '@/lib/electron/request'
 
 export async function middleware(request: NextRequest) {
+  const isElectronRequest = isElectronRequestHeaders(request.headers)
+  if (isElectronRequest && request.nextUrl.pathname.startsWith('/dashboard')) {
+    // Desktop app supports local offline mode, so avoid forcing network auth here.
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   })

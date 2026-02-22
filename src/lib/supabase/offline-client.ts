@@ -161,20 +161,50 @@ class OfflineAwareQueryBuilder implements PromiseLike<QueryResult<unknown>> {
   }
 
   private async run(): Promise<QueryResult<unknown>> {
-    if (!this.mutationAction) {
+    const electronRuntime = isElectronRuntime()
+    const offlineMode = electronRuntime ? await isManualOfflineMode() : false
+
+    if (this.mutationAction) {
+      if (!electronRuntime) {
+        return this.runRemoteQuery()
+      }
+
+      if (offlineMode) {
+        return this.runLocalMutation()
+      }
+
+      return this.runRemoteWithFallback(() => this.runLocalMutation())
+    }
+
+    if (!electronRuntime) {
       return this.runRemoteQuery()
     }
 
-    if (!isElectronRuntime()) {
-      return this.runRemoteQuery()
+    if (offlineMode) {
+      return this.runLocalSelect()
     }
 
-    const offlineMode = await isManualOfflineMode()
-    if (!offlineMode) {
-      return this.runRemoteQuery()
-    }
+    return this.runRemoteWithFallback(() => this.runLocalSelect())
+  }
 
-    return this.runLocalMutation()
+  private async runRemoteWithFallback(fallback: () => Promise<QueryResult<unknown>>) {
+    try {
+      const remote = await this.runRemoteQuery()
+      if (remote.error && this.isOfflineLikeError(remote.error)) {
+        return fallback()
+      }
+
+      return remote
+    } catch (error) {
+      if (this.isOfflineLikeError(error)) {
+        return fallback()
+      }
+
+      return {
+        data: null,
+        error: this.toQueryError(error, 'Query failed'),
+      }
+    }
   }
 
   private async runRemoteQuery(): Promise<QueryResult<unknown>> {
@@ -220,6 +250,83 @@ class OfflineAwareQueryBuilder implements PromiseLike<QueryResult<unknown>> {
     }
 
     return Promise.resolve(query)
+  }
+
+  private async runLocalSelect(): Promise<QueryResult<unknown>> {
+    const table = toLocalTableName(this.table)
+
+    try {
+      const filterRecord = this.getFilterRecord()
+      const requestedUserId = typeof filterRecord.user_id === 'string' ? filterRecord.user_id : null
+      const userId = requestedUserId ?? await getDesktopUserId()
+
+      if (!userId) {
+        return {
+          data: null,
+          error: {
+            message: 'No local user session available for offline query',
+            code: 'OFFLINE_NO_USER',
+          },
+        }
+      }
+
+      const [firstOrder, ...remainingOrders] = this.orders
+      const rows = await invokeDesktopDb<Record<string, unknown>[]>('queryTable', [
+        table,
+        {
+          userId,
+          filters: filterRecord,
+          orderBy: firstOrder?.column,
+          ascending: firstOrder ? (firstOrder.options?.ascending ?? true) : undefined,
+          includeDeleted: false,
+          limit: this.limitCount ?? undefined,
+        },
+      ])
+
+      let resultRows = rows
+
+      if (this.inFilters.length > 0) {
+        resultRows = resultRows.filter((row) =>
+          this.inFilters.every(({ column, values }) => values.some((value) => row[column] === value))
+        )
+      }
+
+      if (remainingOrders.length > 0) {
+        resultRows = this.sortRows(resultRows, remainingOrders)
+      }
+
+      if (this.limitCount !== null && this.limitCount >= 0) {
+        resultRows = resultRows.slice(0, this.limitCount)
+      }
+
+      if (this.singleRequested) {
+        const row = resultRows[0]
+        if (!row) {
+          return {
+            data: null,
+            error: {
+              message: 'No rows returned',
+              code: 'PGRST116',
+            },
+          }
+        }
+
+        return {
+          data: row,
+          error: null,
+        }
+      }
+
+      return {
+        data: resultRows,
+        error: null,
+      }
+    } catch (error) {
+      return {
+        data: null,
+        error: this.toQueryError(error, 'Offline query failed'),
+      }
+    }
   }
 
   private async runLocalMutation(): Promise<QueryResult<unknown>> {
@@ -343,6 +450,85 @@ class OfflineAwareQueryBuilder implements PromiseLike<QueryResult<unknown>> {
     }
 
     return record
+  }
+
+  private sortRows(rows: Record<string, unknown>[], rules: OrderRule[]) {
+    const nextRows = [...rows]
+
+    nextRows.sort((a, b) => {
+      for (const rule of rules) {
+        const av = a[rule.column]
+        const bv = b[rule.column]
+        if (av === bv) {
+          continue
+        }
+
+        if (av === null || av === undefined) {
+          return (rule.options?.ascending ?? true) ? -1 : 1
+        }
+        if (bv === null || bv === undefined) {
+          return (rule.options?.ascending ?? true) ? 1 : -1
+        }
+
+        if (av < bv) {
+          return (rule.options?.ascending ?? true) ? -1 : 1
+        }
+        if (av > bv) {
+          return (rule.options?.ascending ?? true) ? 1 : -1
+        }
+      }
+
+      return 0
+    })
+
+    return nextRows
+  }
+
+  private isOfflineLikeError(error: unknown) {
+    if (!error) {
+      return false
+    }
+
+    const candidate = error as { code?: string; message?: string; details?: string }
+    const code = candidate.code?.toLowerCase() ?? ''
+    const body = `${candidate.message ?? ''} ${candidate.details ?? ''}`.toLowerCase()
+
+    if (
+      code.includes('offline') ||
+      code.includes('enotfound') ||
+      code.includes('econn') ||
+      code.includes('timeout')
+    ) {
+      return true
+    }
+
+    return (
+      body.includes('internet disconnected') ||
+      body.includes('err_internet_disconnected') ||
+      body.includes('failed to fetch') ||
+      body.includes('fetch failed') ||
+      body.includes('network request failed') ||
+      body.includes('networkerror') ||
+      body.includes('offline')
+    )
+  }
+
+  private toQueryError(error: unknown, fallbackMessage: string): QueryError {
+    if (error && typeof error === 'object') {
+      const candidate = error as { message?: string; code?: string; details?: string; hint?: string }
+      return {
+        message: candidate.message || fallbackMessage,
+        code: candidate.code,
+        details: candidate.details,
+        hint: candidate.hint,
+      }
+    }
+
+    if (typeof error === 'string') {
+      return { message: error }
+    }
+
+    return { message: fallbackMessage }
   }
 
   private async getRowsForLocalMutation(table: string, userId: string) {

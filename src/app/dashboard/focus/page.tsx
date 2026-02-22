@@ -1,18 +1,23 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { headers } from 'next/headers'
 import { FocusSession } from '@/components/study/focus-session'
 import { EnergyLevel, SessionType } from '@/lib/types'
+import { isElectronRequestHeaders } from '@/lib/electron/request'
 
 type FocusPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
 export default async function FocusPage({ searchParams }: FocusPageProps) {
+  const isElectronRequest = isElectronRequestHeaders(await headers())
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
 
   if (error || !user) {
-    redirect('/auth')
+    if (!isElectronRequest) {
+      redirect('/login')
+    }
   }
 
   const params = (await searchParams) || {}
@@ -31,19 +36,24 @@ export default async function FocusPage({ searchParams }: FocusPageProps) {
   const [
     { data: subjects },
     { data: tasks },
-  ] = await Promise.all([
-    supabase
-      .from('subjects')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: true }),
-    supabase
-      .from('tasks')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_completed', false)
-      .order('due_date', { ascending: true }),
-  ])
+  ] = user
+    ? await Promise.all([
+      supabase
+        .from('subjects')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_completed', false)
+        .order('due_date', { ascending: true }),
+    ])
+    : [
+      { data: [] },
+      { data: [] },
+    ]
 
   return (
     <FocusSession

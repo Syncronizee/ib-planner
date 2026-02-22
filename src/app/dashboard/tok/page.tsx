@@ -1,51 +1,68 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { Header } from '@/components/layout/header'
 import { TOKEssaySection } from './tok-essay-section'
 import { TOKExhibitionSection } from './tok-exhibition-section'
 import { TOKKnowledgeQuestionsSection } from './tok-kq-section'
 import { TOKNotesSection } from './tok-notes-section'
+import { isElectronRequestHeaders } from '@/lib/electron/request'
 
 export default async function TOKPage() {
+  const isElectronRequest = isElectronRequestHeaders(await headers())
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user }, error } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect('/login')
+  if (error || !user) {
+    if (!isElectronRequest) {
+      redirect('/login')
+    }
   }
 
-  const { data: essay } = await supabase
-    .from('tok_essay')
-    .select('*')
-    .single()
+  const { data: essay } = user
+    ? await supabase
+      .from('tok_essay')
+      .select('*')
+      .single()
+    : { data: null }
 
-  const { data: exhibition } = await supabase
-    .from('tok_exhibition')
-    .select('*')
-    .single()
+  const { data: exhibition } = user
+    ? await supabase
+      .from('tok_exhibition')
+      .select('*')
+      .single()
+    : { data: null }
 
-  const { data: exhibitionObjects } = await supabase
-    .from('tok_exhibition_objects')
-    .select('*')
-    .order('object_number')
+  const { data: exhibitionObjects } = user
+    ? await supabase
+      .from('tok_exhibition_objects')
+      .select('*')
+      .order('object_number')
+    : { data: [] }
 
-  const { data: knowledgeQuestions } = await supabase
-    .from('tok_knowledge_questions')
-    .select('*')
-    .order('created_at', { ascending: false })
+  const { data: knowledgeQuestions } = user
+    ? await supabase
+      .from('tok_knowledge_questions')
+      .select('*')
+      .order('created_at', { ascending: false })
+    : { data: [] }
 
-  const { data: notes } = await supabase
-    .from('tok_notes')
-    .select('*')
+  const { data: notes } = user
+    ? await supabase
+      .from('tok_notes')
+      .select('*')
+    : { data: [] }
 
-  const { data: userPrompts } = await supabase
-    .from('tok_prompts')
-    .select('*')
-    .order('created_at', { ascending: false })
+  const { data: userPrompts } = user
+    ? await supabase
+      .from('tok_prompts')
+      .select('*')
+      .order('created_at', { ascending: false })
+    : { data: [] }
 
   return (
     <div className="min-h-screen bg-background">
-      <Header email={user.email || ''} />
+      <Header email={user?.email || ''} />
       
       <main className="max-w-4xl mx-auto px-4 sm:px-8 py-8">
         <div className="mb-8">

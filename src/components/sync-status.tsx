@@ -13,12 +13,14 @@ interface SyncStatusProps {
   className?: string
   showLastSynced?: boolean
   compact?: boolean
+  showHoverRefresh?: boolean
 }
 
 export function SyncStatus({
   className,
   showLastSynced = true,
   compact = false,
+  showHoverRefresh = true,
 }: SyncStatusProps) {
   const { isElectron } = usePlatform()
   const {
@@ -92,7 +94,9 @@ export function SyncStatus({
       <span className={cn('h-2 w-2 rounded-full', stateMeta.dotClassName, !isOnline ? 'animate-pulse' : '')} />
       <Icon className={cn('h-4 w-4', status === 'syncing' ? 'animate-spin' : '')} />
       {!compact ? <span className="max-w-40 truncate">{stateMeta.label}</span> : null}
-      <RefreshCw className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
+      {showHoverRefresh ? (
+        <RefreshCw className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
+      ) : null}
     </button>
   )
 

@@ -11,7 +11,9 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/server'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { isElectronRequestHeaders } from '@/lib/electron/request'
 
 const features = [
   {
@@ -47,6 +49,11 @@ const features = [
 ]
 
 export default async function HomePage() {
+  const isElectronRequest = isElectronRequestHeaders(await headers())
+  if (isElectronRequest) {
+    redirect('/dashboard')
+  }
+
   const supabase = await createClient()
   const {
     data: { user },

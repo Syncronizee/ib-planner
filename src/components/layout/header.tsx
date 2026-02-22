@@ -2,10 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { LogOut, Calendar, LayoutDashboard, Compass, Lightbulb, BookOpen, Sparkles, RefreshCw, Download } from 'lucide-react'
+import { LogOut, Calendar, LayoutDashboard, Compass, Lightbulb, BookOpen, Sparkles, RefreshCw, Download, Settings } from 'lucide-react'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import type { ThemeId } from '@/components/theme/themes'
 import { SyncStatus } from '@/components/sync-status'
@@ -21,14 +21,33 @@ export function Header({ email }: HeaderProps) {
   const router = useRouter()
   const { theme, setTheme, themes } = useTheme()
   const { isElectron } = usePlatform()
+  const [resolvedEmail, setResolvedEmail] = useState(email)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [updateStatus, setUpdateStatus] = useState('Check for updates')
   const [updateReady, setUpdateReady] = useState(false)
 
+  useEffect(() => {
+    setResolvedEmail(email)
+  }, [email])
+
+  useEffect(() => {
+    if (!isElectron || resolvedEmail || !window.electronAPI?.auth?.getLastUser) {
+      return
+    }
+
+    void window.electronAPI.auth.getLastUser().then((user) => {
+      if (user?.email) {
+        setResolvedEmail(user.email)
+      }
+    }).catch(() => {
+      // Best-effort local user label.
+    })
+  }, [isElectron, resolvedEmail])
+
   const handleSignOut = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/auth')
+    router.push('/login')
   }
 
   const handleCheckUpdates = async () => {
@@ -94,7 +113,7 @@ export function Header({ email }: HeaderProps) {
             <span className="h-3 w-3 rounded-full bg-[var(--accent)]" />
           </Link>
           
-          <nav className="hidden sm:flex items-center gap-1">
+          <nav className="hidden md:flex items-center gap-1">
             {navItems.map(item => {
               const Icon = item.icon
               const isActive = pathname === item.href
@@ -117,100 +136,96 @@ export function Header({ email }: HeaderProps) {
         </div>
 
         <div className="ml-auto flex items-center justify-end gap-3 lg:gap-4 shrink-0">
-          <div className="hidden lg:block xl:hidden">
-            <SyncStatus compact />
-          </div>
-          <div className="hidden xl:block">
-            <SyncStatus />
-          </div>
-          <div className="hidden md:flex items-center gap-2">
-            <span className="text-xs font-medium token-muted">Theme</span>
-            <select
-              aria-label="Theme"
-              value={theme}
-              onChange={(event) => setTheme(event.target.value as ThemeId)}
-              className="h-9 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--card-fg)] px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--ring)]"
-            >
-              {themes.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          {isElectron ? (
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="hidden lg:inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--muted-fg)] hover:text-[var(--fg)] hover:bg-[var(--muted)] transition-smooth"
-                  aria-label="Open app updates menu"
-                  title="App updates"
-                >
-                  <Download className="h-4 w-4" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="end"
-                className="w-56 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--card-fg)] p-3"
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--muted-fg)] hover:text-[var(--fg)] hover:bg-[var(--muted)] transition-smooth"
+                aria-label="Open settings menu"
+                title="Settings"
               >
-                <p className="text-xs text-[var(--muted-fg)] mb-2">{updateStatus}</p>
-                <div className="flex items-center justify-end gap-2">
+                <Settings className="h-4 w-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-72 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--card-fg)] p-3"
+            >
+              <div className="space-y-3">
+                <div className="pb-3 border-b border-[var(--border)]">
+                  <p className="mb-2 text-[11px] uppercase tracking-wide token-muted">Sync</p>
+                  <SyncStatus className="w-full justify-center" showHoverRefresh={false} />
+                </div>
+
+                <div className="pb-3 border-b border-[var(--border)]">
+                  <label htmlFor="theme-menu-select" className="mb-2 block text-[11px] uppercase tracking-wide token-muted">
+                    Theme
+                  </label>
+                  <select
+                    id="theme-menu-select"
+                    aria-label="Theme"
+                    value={theme}
+                    onChange={(event) => setTheme(event.target.value as ThemeId)}
+                    className="h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--card-fg)] px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  >
+                    {themes.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {isElectron ? (
+                  <div className="pb-3 border-b border-[var(--border)]">
+                    <p className="mb-2 text-[11px] uppercase tracking-wide token-muted">Updates</p>
+                    <p className="text-xs text-[var(--muted-fg)] mb-2">{updateStatus}</p>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void handleCheckUpdates()}
+                        disabled={checkingUpdate}
+                        className="h-8 text-[var(--muted-fg)] hover:text-[var(--fg)]"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${checkingUpdate ? 'animate-spin' : ''}`} />
+                        Check
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void handleApplyUpdate()}
+                        disabled={!updateReady}
+                        className="h-8 text-[var(--muted-fg)] hover:text-[var(--fg)]"
+                      >
+                        <Download className="h-3.5 w-3.5 mr-1.5" />
+                        Restart
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="space-y-2">
+                  <div className="text-xs token-muted truncate">{resolvedEmail || 'Local offline user'}</div>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => void handleCheckUpdates()}
-                    disabled={checkingUpdate}
-                    className="h-8 text-[var(--muted-fg)] hover:text-[var(--fg)]"
+                    onClick={handleSignOut}
+                    className="w-full justify-start text-[var(--muted-fg)] hover:text-[var(--fg)] hover:bg-[var(--muted)]"
                   >
-                    <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${checkingUpdate ? 'animate-spin' : ''}`} />
-                    Check
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void handleApplyUpdate()}
-                    disabled={!updateReady}
-                    className="h-8 text-[var(--muted-fg)] hover:text-[var(--fg)]"
-                  >
-                    Restart
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
                   </Button>
                 </div>
-              </PopoverContent>
-            </Popover>
-          ) : null}
-          <span className="text-sm token-muted hidden lg:inline">{email}</span>
-          <Button
-            variant="ghost" 
-            size="sm" 
-            onClick={handleSignOut} 
-            className="text-[var(--muted-fg)] hover:text-[var(--fg)] hover:bg-[var(--muted)]"
-          >
-            <LogOut className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Sign Out</span>
-          </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
       {/* Mobile Navigation */}
-      <div className="sm:hidden border-t border-[var(--border)] px-3 py-2">
-        <div className="flex items-center gap-2 mb-2">
-          <SyncStatus compact className="mr-1" />
-          <span className="text-[11px] uppercase tracking-wide token-muted">Theme</span>
-          <select
-            aria-label="Theme"
-            value={theme}
-            onChange={(event) => setTheme(event.target.value as ThemeId)}
-            className="h-8 flex-1 rounded-md border border-[var(--border)] bg-[var(--card)] text-[var(--card-fg)] px-2 text-xs outline-none focus:ring-2 focus:ring-[var(--ring)]"
-          >
-            {themes.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      <nav className="sm:hidden flex items-center justify-around border-t border-[var(--border)] px-2 pt-2">
+      <div className="md:hidden border-t border-[var(--border)] px-3 py-2">
+      <nav className="md:hidden grid grid-cols-3 gap-1 px-1">
         {navItems.map(item => {
           const Icon = item.icon
           const isActive = pathname === item.href
@@ -218,7 +233,7 @@ export function Header({ email }: HeaderProps) {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl text-[10px] transition-smooth ${
+              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-xl text-[10px] transition-smooth ${
                 isActive 
                   ? 'bg-[var(--accent)] text-[var(--accent-fg)]'
                   : 'text-[var(--muted-fg)]'
