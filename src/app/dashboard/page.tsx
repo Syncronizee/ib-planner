@@ -17,7 +17,7 @@ import { GraduationCap, Target, TrendingUp, CheckSquare } from 'lucide-react'
 import { formatDotoNumber } from '@/lib/utils'
 import { format, startOfWeek } from 'date-fns'
 import { isElectronRequestHeaders } from '@/lib/electron/request'
-import { OfflineDashboard } from './offline-dashboard'
+import { ElectronDashboardAuthGate } from './electron-auth-gate'
 
 export default async function DashboardPage() {
   const isElectronRequest = isElectronRequestHeaders(await headers())
@@ -30,7 +30,7 @@ export default async function DashboardPage() {
       redirect('/login')
     }
 
-    return <OfflineDashboard email="" />
+    return <ElectronDashboardAuthGate />
   }
 
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })
