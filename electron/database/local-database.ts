@@ -196,7 +196,7 @@ function buildWhere(where: Record<string, Primitive>) {
       return `${safeKey} IS NULL`
     }
 
-    params.push(value)
+    params.push(serializeValue(value))
     return `${safeKey} = ?`
   })
 

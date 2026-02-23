@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { StudySession, Subject, SESSION_TYPES } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { formatDotoNumber } from '@/lib/utils'
+import { getDesktopUserId, invokeDesktopDb, isElectronRuntime } from '@/lib/electron/offline'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -41,11 +42,30 @@ export function StudySessionsList({ sessions: initialSessions, subjects }: Study
   const [sessions, setSessions] = useState(initialSessions)
   const [logOpen, setLogOpen] = useState(false)
 
+  useEffect(() => {
+    setSessions(initialSessions)
+  }, [initialSessions])
+
   const handleDelete = async (id: string) => {
+    if (isElectronRuntime()) {
+      const userId = await getDesktopUserId()
+      if (!userId) {
+        return
+      }
+
+      await invokeDesktopDb<number>('deleteTableRecords', [
+        'study_sessions',
+        userId,
+        { id },
+      ])
+      setSessions((prev) => prev.filter((s) => s.id !== id))
+      return
+    }
+
     const supabase = createClient()
     const { error } = await supabase.from('study_sessions').delete().eq('id', id)
     if (!error) {
-      setSessions(sessions.filter(s => s.id !== id))
+      setSessions((prev) => prev.filter((s) => s.id !== id))
     }
   }
 

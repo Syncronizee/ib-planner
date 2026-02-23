@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { format, startOfWeek } from 'date-fns'
 import { Header } from '@/components/layout/header'
 import { SubjectsSection } from './subjects-section'
@@ -17,6 +17,7 @@ import { SessionLoggerFab } from '@/components/study/session-logger-fab'
 import { GraduationCap, Target, TrendingUp, CheckSquare } from 'lucide-react'
 import { formatDotoNumber } from '@/lib/utils'
 import { getDesktopUserId, invokeDesktopDb } from '@/lib/electron/offline'
+import { onDataChanged } from '@/lib/live-data/events'
 import type {
   Assessment,
   ScheduledStudySession,
@@ -129,71 +130,87 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let mounted = true
-
-    const bootstrap = async () => {
+  const bootstrap = useCallback(async (mountedRef?: { current: boolean }, options?: { silent?: boolean }) => {
+    const silent = options?.silent === true
+    if (!silent) {
       setLoading(true)
       setError(null)
+    }
 
-      try {
-        if (window.electronAPI?.auth?.getLastUser) {
-          const localUser = await window.electronAPI.auth.getLastUser()
-          if (mounted && localUser?.email) {
-            setResolvedEmail(localUser.email)
-          }
-        }
-
-        const userId = await getDesktopUserId()
-        if (!userId) {
-          if (mounted) {
-            setError('No local user session found. Sign in once online to seed offline data.')
-          }
-          return
-        }
-
-        let snapshot = await loadLocalSnapshot(userId)
-        if (mounted) {
-          setSnapshot(snapshot)
-        }
-
-        const isOnline = window.electronAPI?.platform?.isOnline
-          ? await window.electronAPI.platform.isOnline()
-          : navigator.onLine
-        const status = window.electronAPI?.sync?.status
-          ? await window.electronAPI.sync.status()
-          : null
-
-        const shouldPrime =
-          Boolean(isOnline) &&
-          Boolean(window.electronAPI?.sync?.start) &&
-          (snapshot.totalRows === 0 || !status?.lastSyncedAt)
-
-        // First-run bootstrap: if local cache is empty and online is available, pull once then reload from SQLite.
-        if (shouldPrime && window.electronAPI?.sync?.start) {
-          await window.electronAPI.sync.start()
-          snapshot = await loadLocalSnapshot(userId)
-          if (mounted) {
-            setSnapshot(snapshot)
-          }
-        }
-      } catch (cause) {
-        if (mounted) {
-          setError(cause instanceof Error ? cause.message : 'Unable to load local dashboard data')
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false)
+    try {
+      if (window.electronAPI?.auth?.getLastUser) {
+        const localUser = await window.electronAPI.auth.getLastUser()
+        if ((!mountedRef || mountedRef.current) && localUser?.email) {
+          setResolvedEmail(localUser.email)
         }
       }
-    }
 
-    void bootstrap()
+      const userId = await getDesktopUserId()
+      if (!userId) {
+        if (!mountedRef || mountedRef.current) {
+          setError('No local user session found. Sign in once online to seed offline data.')
+        }
+        return
+      }
 
-    return () => {
-      mounted = false
+      let snapshot = await loadLocalSnapshot(userId)
+      if (!mountedRef || mountedRef.current) {
+        setSnapshot(snapshot)
+      }
+
+      const isOnline = window.electronAPI?.platform?.isOnline
+        ? await window.electronAPI.platform.isOnline()
+        : navigator.onLine
+      const status = window.electronAPI?.sync?.status
+        ? await window.electronAPI.sync.status()
+        : null
+
+      const shouldPrime =
+        Boolean(isOnline) &&
+        Boolean(window.electronAPI?.sync?.start) &&
+        (snapshot.totalRows === 0 || !status?.lastSyncedAt)
+
+      // First-run bootstrap: if local cache is empty and online is available, pull once then reload from SQLite.
+      if (shouldPrime && window.electronAPI?.sync?.start) {
+        await window.electronAPI.sync.start()
+        snapshot = await loadLocalSnapshot(userId)
+        if (!mountedRef || mountedRef.current) {
+          setSnapshot(snapshot)
+        }
+      }
+    } catch (cause) {
+      if (!mountedRef || mountedRef.current) {
+        setError(cause instanceof Error ? cause.message : 'Unable to load local dashboard data')
+      }
+    } finally {
+      if ((!mountedRef || mountedRef.current) && !silent) {
+        setLoading(false)
+      }
     }
   }, [])
+
+  useEffect(() => {
+    const mountedRef = { current: true }
+
+    void bootstrap(mountedRef)
+
+    const refresh = () => {
+      void bootstrap(mountedRef, { silent: true })
+    }
+
+    window.addEventListener('focus', refresh)
+    window.addEventListener('study-sessions-updated', refresh)
+    window.addEventListener('scheduled-sessions-updated', refresh)
+    const unsubscribe = onDataChanged(refresh)
+
+    return () => {
+      mountedRef.current = false
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('study-sessions-updated', refresh)
+      window.removeEventListener('scheduled-sessions-updated', refresh)
+      unsubscribe()
+    }
+  }, [bootstrap])
 
   const {
     subjects,

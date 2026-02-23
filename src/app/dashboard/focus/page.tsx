@@ -4,6 +4,7 @@ import { headers } from 'next/headers'
 import { FocusSession } from '@/components/study/focus-session'
 import { EnergyLevel, SessionType } from '@/lib/types'
 import { isElectronRequestHeaders } from '@/lib/electron/request'
+import { ElectronFocusPage } from './electron-focus-page'
 
 type FocusPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>
@@ -11,13 +12,15 @@ type FocusPageProps = {
 
 export default async function FocusPage({ searchParams }: FocusPageProps) {
   const isElectronRequest = isElectronRequestHeaders(await headers())
+  if (isElectronRequest) {
+    return <ElectronFocusPage />
+  }
+
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
 
   if (error || !user) {
-    if (!isElectronRequest) {
-      redirect('/login')
-    }
+    redirect('/login')
   }
 
   const params = (await searchParams) || {}
@@ -32,6 +35,7 @@ export default async function FocusPage({ searchParams }: FocusPageProps) {
       ? params.taskSuggestion
       : ''
   const autoStart = params.autostart === '1'
+  const plannedSessionId = typeof params.plannedSessionId === 'string' ? params.plannedSessionId : undefined
 
   const [
     { data: subjects },
@@ -66,6 +70,7 @@ export default async function FocusPage({ searchParams }: FocusPageProps) {
       initialEnergyLevel={energyLevel}
       initialTaskSuggestion={taskSuggestion}
       autoStart={autoStart}
+      plannedSessionId={plannedSessionId}
     />
   )
 }

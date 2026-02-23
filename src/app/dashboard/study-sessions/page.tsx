@@ -4,16 +4,19 @@ import { headers } from 'next/headers'
 import { Header } from '@/components/layout/header'
 import { StudySessionsList } from '@/components/study/study-sessions-list'
 import { isElectronRequestHeaders } from '@/lib/electron/request'
+import { ElectronStudySessionsPage } from './electron-study-sessions-page'
 
 export default async function StudySessionsPage() {
   const isElectronRequest = isElectronRequestHeaders(await headers())
+  if (isElectronRequest) {
+    return <ElectronStudySessionsPage />
+  }
+
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
 
   if (error || !user) {
-    if (!isElectronRequest) {
-      redirect('/login')
-    }
+    redirect('/login')
   }
 
   const [

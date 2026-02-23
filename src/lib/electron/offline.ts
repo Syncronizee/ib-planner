@@ -1,4 +1,5 @@
 import type { SyncStatus } from '@/lib/db/types'
+import { emitDataChanged } from '@/lib/live-data/events'
 
 export function isElectronRuntime() {
   return typeof window !== 'undefined' && Boolean(window.electronAPI?.isElectron)
@@ -55,13 +56,32 @@ export async function invokeDesktopDb<T>(method: string, args: unknown[] = []) {
     throw new Error('Desktop database bridge is unavailable')
   }
 
+  let result: T
+
   if (window.electronAPI.db?.invoke) {
-    return window.electronAPI.db.invoke<T>(method, args)
+    result = await window.electronAPI.db.invoke<T>(method, args)
+  } else if (window.electronAPI.dbInvoke) {
+    result = await window.electronAPI.dbInvoke<T>(method, args)
+  } else {
+    throw new Error('Desktop database bridge is unavailable')
   }
 
-  if (window.electronAPI.dbInvoke) {
-    return window.electronAPI.dbInvoke<T>(method, args)
+  const isMutationMethod =
+    method.startsWith('create') ||
+    method.startsWith('update') ||
+    method.startsWith('delete') ||
+    method === 'createTableRecord' ||
+    method === 'updateTableRecords' ||
+    method === 'deleteTableRecords'
+
+  if (isMutationMethod) {
+    const tableArg = typeof args[0] === 'string' ? args[0] : undefined
+    emitDataChanged({
+      source: 'desktop-db',
+      action: 'mutation',
+      table: tableArg,
+    })
   }
 
-  throw new Error('Desktop database bridge is unavailable')
+  return result
 }

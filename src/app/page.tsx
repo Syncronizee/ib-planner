@@ -50,6 +50,11 @@ const features = [
 
 export default async function HomePage() {
   const isElectronRequest = isElectronRequestHeaders(await headers())
+
+  if (isElectronRequest) {
+    redirect('/dashboard')
+  }
+
   const supabase = await createClient()
   const {
     data: { user },
@@ -57,10 +62,6 @@ export default async function HomePage() {
 
   if (user) {
     redirect('/dashboard')
-  }
-
-  if (isElectronRequest) {
-    redirect('/login')
   }
 
   const loginHref = '/login'

@@ -6,9 +6,11 @@ import { formatDotoNumber } from '@/lib/utils'
 import { BookOpen, CalendarClock, Clock, Play } from 'lucide-react'
 import { isThisWeek } from 'date-fns'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { QuickLogModal } from '@/components/study/quick-log-modal'
 import { StudySessionSetupDialog } from '@/components/study/study-session-setup-dialog'
+import { buildFocusUrlForScheduledSession } from '@/lib/study/start-scheduled-session'
 
 interface StudySessionsWidgetProps {
   sessions: StudySession[]
@@ -20,6 +22,7 @@ interface StudySessionsWidgetProps {
 export function StudySessionsWidget({ sessions, subjects, tasks, scheduledSessions }: StudySessionsWidgetProps) {
   const [startOpen, setStartOpen] = useState(false)
   const [quickLogOpen, setQuickLogOpen] = useState(false)
+  const router = useRouter()
 
   const thisWeekSessions = sessions.filter(s => isThisWeek(new Date(s.started_at), { weekStartsOn: 1 }))
   const totalMinutes = thisWeekSessions.reduce((sum, s) => sum + s.duration_minutes, 0)
@@ -112,17 +115,27 @@ export function StudySessionsWidget({ sessions, subjects, tasks, scheduledSessio
             {upcomingScheduled.map((session) => {
               const subject = subjects.find((item) => item.id === session.subject_id)
               return (
-                <div key={session.id} className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--muted)]/45 px-3 py-2">
-                  <CalendarClock className="h-4 w-4 text-[var(--accent)] shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm text-[var(--card-fg)] truncate">
-                      {subject?.name || 'General Study'}
-                      {session.task_suggestion ? ` • ${session.task_suggestion}` : ''}
-                    </p>
-                    <p className="text-xs text-[var(--muted-fg)]">
-                      {new Date(session.scheduled_for).toLocaleString()}
-                    </p>
+                <div key={session.id} className="flex items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--muted)]/45 px-3 py-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <CalendarClock className="h-4 w-4 text-[var(--accent)] shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm text-[var(--card-fg)] truncate">
+                        {subject?.name || 'General Study'}
+                        {session.task_suggestion ? ` • ${session.task_suggestion}` : ''}
+                      </p>
+                      <p className="text-xs text-[var(--muted-fg)]">
+                        {new Date(session.scheduled_for).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
+                  <Button
+                    size="sm"
+                    className="h-8 rounded-lg px-2.5 shrink-0"
+                    onClick={() => router.push(buildFocusUrlForScheduledSession(session))}
+                  >
+                    <Play className="h-3.5 w-3.5 mr-1" />
+                    Start
+                  </Button>
                 </div>
               )
             })}

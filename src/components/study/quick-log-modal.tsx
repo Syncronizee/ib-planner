@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { getDesktopUserId, invokeDesktopDb, isElectronRuntime } from '@/lib/electron/offline'
 
 interface QuickLogModalProps {
   open: boolean
@@ -65,9 +66,12 @@ export function QuickLogModal({ open, onOpenChange, subjects, tasks }: QuickLogM
 
     setSaving(true)
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    const electronRuntime = isElectronRuntime()
+    const localUserId = electronRuntime ? await getDesktopUserId() : null
+    const userId = electronRuntime ? (localUserId ?? authUser?.id) : authUser?.id
 
-    if (!user) {
+    if (!userId) {
       setSaving(false)
       return
     }
@@ -76,8 +80,8 @@ export function QuickLogModal({ open, onOpenChange, subjects, tasks }: QuickLogM
 
     const startedAt = new Date(Date.now() - minutes * 60 * 1000).toISOString()
 
-    const { error } = await supabase.from('study_sessions').insert({
-      user_id: user.id,
+    const payload = {
+      user_id: userId,
       subject_id: subjectId,
       task_id: expanded && taskId ? taskId : null,
       duration_minutes: minutes,
@@ -89,7 +93,19 @@ export function QuickLogModal({ open, onOpenChange, subjects, tasks }: QuickLogM
       session_status: 'completed',
       notes: expanded && notes.trim() ? notes.trim() : null,
       started_at: startedAt,
-    })
+    }
+
+    let error: { message?: string } | null = null
+    if (electronRuntime) {
+      try {
+        await invokeDesktopDb('createTableRecord', ['study_sessions', userId, payload])
+      } catch (cause) {
+        error = { message: cause instanceof Error ? cause.message : 'Unable to log session' }
+      }
+    } else {
+      const response = await supabase.from('study_sessions').insert(payload)
+      error = response.error
+    }
 
     setSaving(false)
 
@@ -98,7 +114,9 @@ export function QuickLogModal({ open, onOpenChange, subjects, tasks }: QuickLogM
       setTimeout(() => setShowToast(false), 2200)
       resetForm()
       onOpenChange(false)
-      router.refresh()
+      if (!electronRuntime) {
+        router.refresh()
+      }
     }
   }
 

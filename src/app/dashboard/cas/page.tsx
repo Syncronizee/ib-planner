@@ -5,16 +5,19 @@ import { Header } from '@/components/layout/header'
 import { CASOverview } from './cas-overview'
 import { CASExperiencesList } from './cas-experiences-list'
 import { isElectronRequestHeaders } from '@/lib/electron/request'
+import { ElectronCASPage } from './electron-cas-page'
 
 export default async function CASPage() {
   const isElectronRequest = isElectronRequestHeaders(await headers())
+  if (isElectronRequest) {
+    return <ElectronCASPage />
+  }
+
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
 
   if (error || !user) {
-    if (!isElectronRequest) {
-      redirect('/login')
-    }
+    redirect('/login')
   }
 
   const { data: experiences } = user

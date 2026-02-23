@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getDesktopUserId, invokeDesktopDb, isElectronRuntime, isManualOfflineMode } from '@/lib/electron/offline'
+import { emitDataChanged } from '@/lib/live-data/events'
 
 type QueryError = {
   message: string
@@ -163,28 +164,33 @@ class OfflineAwareQueryBuilder implements PromiseLike<QueryResult<unknown>> {
   private async run(): Promise<QueryResult<unknown>> {
     const electronRuntime = isElectronRuntime()
     const offlineMode = electronRuntime ? await isManualOfflineMode() : false
+    let result: QueryResult<unknown>
 
     if (this.mutationAction) {
       if (!electronRuntime) {
-        return this.runRemoteQuery()
+        result = await this.runRemoteQuery()
+      } else if (offlineMode) {
+        result = await this.runLocalMutation()
+      } else {
+        result = await this.runRemoteWithFallback(() => this.runLocalMutation())
       }
-
-      if (offlineMode) {
-        return this.runLocalMutation()
-      }
-
-      return this.runRemoteWithFallback(() => this.runLocalMutation())
+    } else if (!electronRuntime) {
+      result = await this.runRemoteQuery()
+    } else if (offlineMode) {
+      result = await this.runLocalSelect()
+    } else {
+      result = await this.runRemoteWithFallback(() => this.runLocalSelect())
     }
 
-    if (!electronRuntime) {
-      return this.runRemoteQuery()
+    if (this.mutationAction && !result.error) {
+      emitDataChanged({
+        source: 'supabase',
+        action: this.mutationAction,
+        table: this.table,
+      })
     }
 
-    if (offlineMode) {
-      return this.runLocalSelect()
-    }
-
-    return this.runRemoteWithFallback(() => this.runLocalSelect())
+    return result
   }
 
   private async runRemoteWithFallback(fallback: () => Promise<QueryResult<unknown>>) {

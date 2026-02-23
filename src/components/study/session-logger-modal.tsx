@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { BookOpen, Zap, Gauge, Battery } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { getDesktopUserId, invokeDesktopDb, isElectronRuntime } from '@/lib/electron/offline'
 
 interface SessionLoggerModalProps {
   open: boolean
@@ -48,21 +49,43 @@ export function SessionLoggerModal({ open, onOpenChange, subjects }: SessionLogg
   const handleSave = async () => {
     setSaving(true)
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    const electronRuntime = isElectronRuntime()
+    const localUserId = electronRuntime ? await getDesktopUserId() : null
+    const userId = electronRuntime ? (localUserId ?? authUser?.id) : authUser?.id
 
-    if (!user) return
+    if (!userId) {
+      setSaving(false)
+      return
+    }
 
     const finalDuration = customDuration ? parseInt(customDuration) : duration
 
-    const { error } = await supabase.from('study_sessions').insert({
-      user_id: user.id,
+    const payload = {
+      user_id: userId,
       subject_id: subjectId || null,
       duration_minutes: finalDuration,
       energy_level: energy,
       session_type: sessionType,
       notes: notes.trim() || null,
       started_at: new Date().toISOString(),
-    })
+    }
+
+    if (electronRuntime) {
+      await invokeDesktopDb('createTableRecord', ['study_sessions', userId, payload])
+      // Reset form
+      setSubjectId('')
+      setDuration(45)
+      setCustomDuration('')
+      setEnergy('medium')
+      setSessionType('practice')
+      setNotes('')
+      onOpenChange(false)
+      setSaving(false)
+      return
+    }
+
+    const { error } = await supabase.from('study_sessions').insert(payload)
 
     if (!error) {
       // Reset form

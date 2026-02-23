@@ -4,17 +4,20 @@ import { headers } from 'next/headers'
 import { Header } from '@/components/layout/header'
 import { CalendarView } from './calendar-view'
 import { isElectronRequestHeaders } from '@/lib/electron/request'
+import { ElectronCalendarPage } from './electron-calendar-page'
 
 export default async function CalendarPage() {
   const isElectronRequest = isElectronRequestHeaders(await headers())
+  if (isElectronRequest) {
+    return <ElectronCalendarPage />
+  }
+
   const supabase = await createClient()
   
   const { data: { user }, error } = await supabase.auth.getUser()
   
   if (error || !user) {
-    if (!isElectronRequest) {
-      redirect('/login')
-    }
+    redirect('/login')
   }
 
   // Fetch all data needed for calendar

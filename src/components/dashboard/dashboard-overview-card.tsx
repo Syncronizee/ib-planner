@@ -21,7 +21,8 @@ export function DashboardOverviewCard({
   subjects,
   scheduledSessions,
 }: DashboardOverviewCardProps) {
-  const [focusOpen, setFocusOpen] = useState(false)
+  const [setupOpen, setSetupOpen] = useState(false)
+  const [setupMode, setSetupMode] = useState<'start' | 'schedule'>('start')
   const now = new Date()
   const today = format(now, 'yyyy-MM-dd')
 
@@ -52,16 +53,25 @@ export function DashboardOverviewCard({
         </div>
         <div className="w-full lg:w-auto grid grid-cols-2 sm:grid-cols-3 gap-2">
           <Button
-            onClick={() => setFocusOpen(true)}
+            onClick={() => {
+              setSetupMode('start')
+              setSetupOpen(true)
+            }}
             className="token-btn-accent rounded-2xl h-[4.5rem] px-2 text-xs sm:text-sm font-medium transition-smooth inline-flex flex-col justify-center items-center gap-1 leading-tight text-center"
           >
             <Play className="h-4 w-4" />
             Start Focus
           </Button>
-          <Link href="/dashboard/calendar?intent=schedule-study" className="btn-glass rounded-2xl h-[4.5rem] px-2 text-xs sm:text-sm font-medium transition-smooth inline-flex flex-col justify-center items-center gap-1 leading-tight text-center">
+          <Button
+            onClick={() => {
+              setSetupMode('schedule')
+              setSetupOpen(true)
+            }}
+            className="btn-glass rounded-2xl h-[4.5rem] px-2 text-xs sm:text-sm font-medium transition-smooth inline-flex flex-col justify-center items-center gap-1 leading-tight text-center"
+          >
             <CalendarClock className="h-4 w-4" />
             Schedule Study
-          </Link>
+          </Button>
           <Link href="/dashboard" className="btn-glass rounded-2xl h-[4.5rem] px-2 text-xs sm:text-sm font-medium transition-smooth inline-flex flex-col justify-center items-center gap-1 leading-tight text-center">
             <Plus className="h-4 w-4" />
             Add Task
@@ -91,11 +101,16 @@ export function DashboardOverviewCard({
       </div>
 
       <StudySessionSetupDialog
-        open={focusOpen}
-        onOpenChange={setFocusOpen}
+        open={setupOpen}
+        onOpenChange={setSetupOpen}
         subjects={subjects}
         tasks={tasks}
-        title="Start Focus Session"
+        title={setupMode === 'start' ? 'Start Focus Session' : 'Schedule Study Session'}
+        description={
+          setupMode === 'start'
+            ? 'Quick setup before entering focus mode.'
+            : 'Plan a study session without leaving your dashboard.'
+        }
       />
     </section>
   )

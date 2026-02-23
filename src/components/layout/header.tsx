@@ -19,6 +19,7 @@ interface HeaderProps {
 export function Header({ email }: HeaderProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const supabase = createClient()
   const { theme, setTheme, themes } = useTheme()
   const { isElectron } = usePlatform()
   const [resolvedEmail, setResolvedEmail] = useState(email)
@@ -45,7 +46,6 @@ export function Header({ email }: HeaderProps) {
   }, [isElectron, resolvedEmail])
 
   const handleSignOut = async () => {
-    const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/login')
   }

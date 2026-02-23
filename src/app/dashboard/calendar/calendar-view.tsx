@@ -44,7 +44,7 @@ import {
   isPast,
 } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
@@ -52,6 +52,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { getTaskBankSuggestions } from '@/lib/study-task-bank'
+import { buildFocusUrlForScheduledSession } from '@/lib/study/start-scheduled-session'
 
 interface CalendarViewProps {
   initialTasks: Task[]
@@ -81,6 +82,7 @@ export function CalendarView({
   initialScheduledSessions,
   initialSchoolEvents,
 }: CalendarViewProps) {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const intent = searchParams.get('intent')
   const initialSubjectFromQuery = searchParams.get('subject')
@@ -343,6 +345,10 @@ export function CalendarView({
     }
   }
 
+  const handleStartScheduledSession = (session: ScheduledStudySession) => {
+    router.push(buildFocusUrlForScheduledSession(session))
+  }
+
   // Get selected date events
   const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : []
 
@@ -587,6 +593,11 @@ export function CalendarView({
                             handleToggleAssessment(event.original as Assessment)
                           }
                         }}
+                        onStart={
+                          event.type === 'scheduled_session'
+                            ? () => handleStartScheduledSession(event.original as ScheduledStudySession)
+                            : undefined
+                        }
                       />
                     ))}
                   </div>
@@ -638,6 +649,11 @@ export function CalendarView({
                               handleToggleAssessment(event.original as Assessment)
                             }
                           }}
+                          onStart={
+                            event.type === 'scheduled_session'
+                              ? () => handleStartScheduledSession(event.original as ScheduledStudySession)
+                              : undefined
+                          }
                         />
                       ))}
                     </div>
@@ -834,11 +850,13 @@ function EventCard({
   getSubjectColor,
   getSubjectName,
   onToggle,
+  onStart,
 }: {
   event: CalendarEvent
   getSubjectColor: (id: string | null | undefined) => string
   getSubjectName: (id: string | null | undefined) => string | null
   onToggle: () => void
+  onStart?: () => void
 }) {
   const subjectName = getSubjectName(event.subjectId)
   const subjectColor = getSubjectColor(event.subjectId)
@@ -902,6 +920,12 @@ function EventCard({
             </Badge>
           )}
         </div>
+        {event.type === 'scheduled_session' && onStart ? (
+          <Button onClick={onStart} size="sm" className="mt-2 h-7 px-2.5 text-xs">
+            <CalendarClock className="h-3.5 w-3.5 mr-1" />
+            Start session
+          </Button>
+        ) : null}
       </div>
     </div>
   )

@@ -551,6 +551,10 @@ function registerOnlineWatch() {
     const currentOnline = net.isOnline() && !manualOfflineMode
     if (currentOnline !== previousOnline) {
       previousOnline = currentOnline
+      const { syncManager: manager } = ensureServices()
+      void manager.setOnline(currentOnline).catch((error) => {
+        writeStartupLog('Failed to update sync state from network watcher', error)
+      })
       broadcast(IPC_CHANNELS.PLATFORM.ON_ONLINE_CHANGE, currentOnline)
     }
   }, 5_000)

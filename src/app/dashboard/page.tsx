@@ -21,16 +21,17 @@ import { ElectronDashboardAuthGate } from './electron-auth-gate'
 
 export default async function DashboardPage() {
   const isElectronRequest = isElectronRequestHeaders(await headers())
+
+  if (isElectronRequest) {
+    return <ElectronDashboardAuthGate />
+  }
+
   const supabase = await createClient()
 
   const { data: { user }, error } = await supabase.auth.getUser()
 
   if (error || !user) {
-    if (!isElectronRequest) {
-      redirect('/login')
-    }
-
-    return <ElectronDashboardAuthGate />
+    redirect('/login')
   }
 
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })

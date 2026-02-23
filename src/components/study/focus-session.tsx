@@ -39,6 +39,7 @@ import { format } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getTaskBankSuggestions } from '@/lib/study-task-bank'
+import { getDesktopUserId, invokeDesktopDb, isElectronRuntime } from '@/lib/electron/offline'
 
 interface FocusSessionProps {
   subjects: Subject[]
@@ -50,6 +51,7 @@ interface FocusSessionProps {
   initialEnergyLevel?: EnergyLevel
   initialTaskSuggestion?: string
   autoStart?: boolean
+  plannedSessionId?: string
 }
 
 type FocusPhase = 'setup' | 'active' | 'summary'
@@ -106,6 +108,7 @@ export function FocusSession({
   initialEnergyLevel = 'medium',
   initialTaskSuggestion = '',
   autoStart = false,
+  plannedSessionId,
 }: FocusSessionProps) {
   const router = useRouter()
 
@@ -191,10 +194,13 @@ export function FocusSession({
     setSaving(true)
     const supabase = createClient()
     const {
-      data: { user },
+      data: { user: authUser },
     } = await supabase.auth.getUser()
+    const electronRuntime = isElectronRuntime()
+    const desktopUserId = electronRuntime ? await getDesktopUserId() : null
+    const userId = electronRuntime ? (desktopUserId ?? authUser?.id) : authUser?.id
 
-    if (!user) {
+    if (!userId) {
       setSaving(false)
       return
     }
@@ -204,8 +210,8 @@ export function FocusSession({
     const objectiveNote = taskSuggestion.trim() ? `Objective: ${taskSuggestion.trim()}` : null
     const combinedNotes = [objectiveNote, summaryNotes.trim()].filter(Boolean).join('\n\n') || null
 
-    await supabase.from('study_sessions').insert({
-      user_id: user.id,
+    const sessionPayload = {
+      user_id: userId,
       subject_id: subjectId || null,
       task_id: taskId || null,
       duration_minutes: actualMinutes,
@@ -214,10 +220,44 @@ export function FocusSession({
       energy_level: energyLevel,
       session_type: sessionType,
       productivity_rating: rating,
-      session_status: 'completed',
+      session_status: 'completed' as const,
       notes: combinedNotes,
       started_at: startTime?.toISOString() || new Date().toISOString(),
-    })
+    }
+
+    if (electronRuntime) {
+      await invokeDesktopDb('createTableRecord', ['study_sessions', userId, sessionPayload])
+
+      if (plannedSessionId) {
+        await invokeDesktopDb('updateTableRecords', [
+          'scheduled_study_sessions',
+          userId,
+          { id: plannedSessionId },
+          { status: 'completed' },
+        ])
+      }
+    } else {
+      const { error: sessionError } = await supabase.from('study_sessions').insert(sessionPayload)
+
+      if (sessionError) {
+        setSaving(false)
+        return
+      }
+
+      if (plannedSessionId) {
+        await supabase
+          .from('scheduled_study_sessions')
+          .update({ status: 'completed' })
+          .eq('id', plannedSessionId)
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('study-sessions-updated'))
+      if (plannedSessionId) {
+        window.dispatchEvent(new CustomEvent('scheduled-sessions-updated'))
+      }
+    }
 
     setSaving(false)
     setSaved(true)

@@ -4,16 +4,19 @@ import { headers } from 'next/headers'
 import { Header } from '@/components/layout/header'
 import { PlanWeekFlow } from '@/components/planning/plan-week-flow'
 import { isElectronRequestHeaders } from '@/lib/electron/request'
+import { ElectronPlanWeekPage } from './electron-plan-week-page'
 
 export default async function PlanWeekPage() {
   const isElectronRequest = isElectronRequestHeaders(await headers())
+  if (isElectronRequest) {
+    return <ElectronPlanWeekPage />
+  }
+
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
 
   if (error || !user) {
-    if (!isElectronRequest) {
-      redirect('/login')
-    }
+    redirect('/login')
   }
 
   const [

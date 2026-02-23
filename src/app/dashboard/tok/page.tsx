@@ -7,16 +7,19 @@ import { TOKExhibitionSection } from './tok-exhibition-section'
 import { TOKKnowledgeQuestionsSection } from './tok-kq-section'
 import { TOKNotesSection } from './tok-notes-section'
 import { isElectronRequestHeaders } from '@/lib/electron/request'
+import { ElectronTOKPage } from './electron-tok-page'
 
 export default async function TOKPage() {
   const isElectronRequest = isElectronRequestHeaders(await headers())
+  if (isElectronRequest) {
+    return <ElectronTOKPage />
+  }
+
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
 
   if (error || !user) {
-    if (!isElectronRequest) {
-      redirect('/login')
-    }
+    redirect('/login')
   }
 
   const { data: essay } = user
