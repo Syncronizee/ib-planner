@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Task, Subject, TASK_CATEGORIES } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -38,7 +38,7 @@ import {
 } from 'lucide-react'
 import { format, isPast, isToday, isTomorrow } from 'date-fns'
 import { useRouter } from 'next/navigation'
-import { getDesktopUserId, invokeDesktopDb, isManualOfflineMode } from '@/lib/electron/offline'
+import { getDesktopUserId, invokeDesktopDb, isElectronRuntime } from '@/lib/electron/offline'
 
 interface TasksSectionProps {
   initialTasks: Task[]
@@ -47,6 +47,9 @@ interface TasksSectionProps {
 
 export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
+  const [savingTask, setSavingTask] = useState(false)
+  const [deletingTaskIds, setDeletingTaskIds] = useState<Set<string>>(new Set())
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [title, setTitle] = useState('')
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
@@ -55,72 +58,124 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
   const [category, setCategory] = useState<Task['category']>('homework')
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [showCompleted, setShowCompleted] = useState(false)
+  const shouldEmitTasksUpdatedRef = useRef(false)
 
   const router = useRouter()
+  const useDesktopMutations = isElectronRuntime()
+
+  const showErrorToast = (message: string) => {
+    setToastMessage(message)
+  }
+
+  useEffect(() => {
+    setTasks(initialTasks)
+  }, [initialTasks])
+
+  useEffect(() => {
+    if (!shouldEmitTasksUpdatedRef.current) {
+      return
+    }
+
+    shouldEmitTasksUpdatedRef.current = false
+    window.dispatchEvent(new CustomEvent('tasks-updated', { detail: tasks }))
+  }, [tasks])
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return
+    }
+
+    const timer = setTimeout(() => setToastMessage(null), 3000)
+    return () => clearTimeout(timer)
+  }, [toastMessage])
+
+  const applyTaskUpdate = (updater: (prev: Task[]) => Task[]) => {
+    shouldEmitTasksUpdatedRef.current = true
+    setTasks((prev) => updater(prev))
+  }
 
   const handleAdd = async () => {
-    if (!title.trim()) return
+    const trimmedTitle = title.trim()
+    if (!trimmedTitle || savingTask) return
 
-    if (await isManualOfflineMode()) {
-      const userId = await getDesktopUserId()
-      if (!userId) {
+    setSavingTask(true)
+
+    try {
+      if (useDesktopMutations) {
+        const userId = await getDesktopUserId()
+        if (!userId) {
+          showErrorToast('Unable to create task: no local user session found.')
+          return
+        }
+
+        const localTask = await invokeDesktopDb<Task>('createTask', [
+          userId,
+          {
+            title: trimmedTitle,
+            due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
+            priority,
+            subject_id: subjectId || null,
+            category,
+            is_completed: false,
+          },
+        ])
+
+        applyTaskUpdate((prev) => [...prev, localTask])
+        setTitle('')
+        setDueDate(undefined)
+        setPriority('medium')
+        setSubjectId('')
+        setCategory('homework')
+        setAdding(false)
         return
       }
 
-      const localTask = await invokeDesktopDb<Task>('createTask', [
-        userId,
-        {
-          title: title.trim(),
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user?.id) {
+        showErrorToast('Unable to create task: please sign in again.')
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert({
+          user_id: user.id,
+          title: trimmedTitle,
           due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
           priority,
           subject_id: subjectId || null,
           category,
           is_completed: false,
-        },
-      ])
+        })
+        .select()
+        .single()
 
-      setTasks((prev) => [...prev, localTask])
-      setTitle('')
-      setDueDate(undefined)
-      setPriority('medium')
-      setSubjectId('')
-      setCategory('homework')
-      setAdding(false)
-      return
+      if (!error && data) {
+        applyTaskUpdate((prev) => [...prev, data])
+        setTitle('')
+        setDueDate(undefined)
+        setPriority('medium')
+        setSubjectId('')
+        setCategory('homework')
+        setAdding(false)
+        router.refresh()
+      } else if (error) {
+        const isRlsError = error.message.toLowerCase().includes('row-level security')
+        showErrorToast(
+          isRlsError
+            ? 'Unable to create task: session expired. Please sign in again.'
+            : `Unable to create task: ${error.message}`
+        )
+      }
+    } catch (cause) {
+      showErrorToast(cause instanceof Error ? `Unable to create task: ${cause.message}` : 'Unable to create task.')
+    } finally {
+      setSavingTask(false)
     }
-
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    const { data, error } = await supabase
-      .from('tasks')
-      .insert({
-        user_id: user?.id,
-        title: title.trim(),
-        due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
-        priority,
-        subject_id: subjectId || null,
-        category,
-        is_completed: false,
-      })
-      .select()
-      .single()
-
-    if (!error && data) {
-      setTasks([...tasks, data])
-      setTitle('')
-      setDueDate(undefined)
-      setPriority('medium')
-      setSubjectId('')
-      setCategory('homework')
-      setAdding(false)
-    }
-
-    router.refresh()
   }
 
   const handleToggle = async (task: Task) => {
-    const supabase = createClient()
     const newState = !task.is_completed
 
     const updateData: Record<string, unknown> = { is_completed: newState }
@@ -130,7 +185,7 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
       updateData.completed_at = null
     }
 
-    if (await isManualOfflineMode()) {
+    if (useDesktopMutations) {
       const userId = await getDesktopUserId()
       if (!userId) {
         return
@@ -142,9 +197,7 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
         updateData,
       ])
 
-      const updatedTasks = tasks.map((t) => (t.id === task.id ? updatedTask : t))
-      setTasks(updatedTasks)
-      window.dispatchEvent(new CustomEvent('tasks-updated', { detail: updatedTasks }))
+      applyTaskUpdate((prev) => prev.map((t) => (t.id === task.id ? updatedTask : t)))
 
       if (task.linked_assessment_id) {
         await invokeDesktopDb('updateAssessment', [
@@ -157,15 +210,20 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
       return
     }
 
+    const supabase = createClient()
     const { error } = await supabase
       .from('tasks')
       .update(updateData)
       .eq('id', task.id)
 
     if (!error) {
-      const updatedTasks = tasks.map(t => t.id === task.id ? { ...t, is_completed: newState, completed_at: newState ? new Date().toISOString() : null } : t)
-      setTasks(updatedTasks)
-      window.dispatchEvent(new CustomEvent('tasks-updated', { detail: updatedTasks }))
+      applyTaskUpdate((prev) =>
+        prev.map((t) => (
+          t.id === task.id
+            ? { ...t, is_completed: newState, completed_at: newState ? new Date().toISOString() : null }
+            : t
+        ))
+      )
 
       if (task.linked_assessment_id) {
         await supabase
@@ -177,20 +235,46 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
   }
 
   const handleDelete = async (task: Task) => {
-    if (await isManualOfflineMode()) {
-      const userId = await getDesktopUserId()
-      if (!userId) {
-        return
-      }
-
-      await invokeDesktopDb('deleteTask', [task.id, userId])
-      setTasks((prev) => prev.filter((t) => t.id !== task.id))
+    if (deletingTaskIds.has(task.id)) {
       return
     }
 
-    const supabase = createClient()
-    const { error } = await supabase.from('tasks').delete().eq('id', task.id)
-    if (!error) setTasks(tasks.filter(t => t.id !== task.id))
+    setDeletingTaskIds((prev) => {
+      const next = new Set(prev)
+      next.add(task.id)
+      return next
+    })
+
+    try {
+      if (useDesktopMutations) {
+        const userId = await getDesktopUserId()
+        if (!userId) {
+          showErrorToast('Unable to delete task: no local user session found.')
+          return
+        }
+
+        await invokeDesktopDb('deleteTask', [task.id, userId])
+        applyTaskUpdate((prev) => prev.filter((t) => t.id !== task.id))
+        return
+      }
+
+      const supabase = createClient()
+      const { error } = await supabase.from('tasks').delete().eq('id', task.id)
+      if (!error) {
+        applyTaskUpdate((prev) => prev.filter((t) => t.id !== task.id))
+        router.refresh()
+      } else {
+        showErrorToast(`Unable to delete task: ${error.message}`)
+      }
+    } catch (cause) {
+      showErrorToast(cause instanceof Error ? `Unable to delete task: ${cause.message}` : 'Unable to delete task.')
+    } finally {
+      setDeletingTaskIds((prev) => {
+        const next = new Set(prev)
+        next.delete(task.id)
+        return next
+      })
+    }
   }
 
   const getSubjectName = (subjectId: string | null) => {
@@ -363,8 +447,8 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
           </div>
 
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAdd} disabled={!title.trim()} className="btn-glass rounded-xl">
-              Save
+            <Button size="sm" onClick={handleAdd} disabled={!title.trim() || savingTask} className="btn-glass rounded-xl">
+              {savingTask ? 'Saving...' : 'Save'}
             </Button>
             <Button size="sm" variant="outline" onClick={() => setAdding(false)} className="bg-[var(--muted)] border-[var(--border)] text-[var(--card-fg)] hover:bg-[var(--card)] rounded-xl">
               Cancel
@@ -389,7 +473,7 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
                 Overdue ({overdueTasks.length})
               </h4>
               {overdueTasks.map(task => (
-                <TaskItem key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} getSubjectName={getSubjectName} getSubjectColor={getSubjectColor} getCategoryIcon={getCategoryIcon} isOverdue />
+                <TaskItem key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} getSubjectName={getSubjectName} getSubjectColor={getSubjectColor} getCategoryIcon={getCategoryIcon} isDeleting={deletingTaskIds.has(task.id)} isOverdue />
               ))}
             </div>
           )}
@@ -402,7 +486,7 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
                 Today ({todayTasks.length})
               </h4>
               {todayTasks.map(task => (
-                <TaskItem key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} getSubjectName={getSubjectName} getSubjectColor={getSubjectColor} getCategoryIcon={getCategoryIcon} isToday />
+                <TaskItem key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} getSubjectName={getSubjectName} getSubjectColor={getSubjectColor} getCategoryIcon={getCategoryIcon} isDeleting={deletingTaskIds.has(task.id)} isToday />
               ))}
             </div>
           )}
@@ -415,7 +499,7 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
                 Upcoming ({upcomingTasks.length})
               </h4>
               {upcomingTasks.map(task => (
-                <TaskItem key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} getSubjectName={getSubjectName} getSubjectColor={getSubjectColor} getCategoryIcon={getCategoryIcon} />
+                <TaskItem key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} getSubjectName={getSubjectName} getSubjectColor={getSubjectColor} getCategoryIcon={getCategoryIcon} isDeleting={deletingTaskIds.has(task.id)} />
               ))}
             </div>
           )}
@@ -429,10 +513,16 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
                 <span className="text-[10px]">{showCompleted ? '▼' : '▶'}</span>
               </button>
               {showCompleted && completedTasks.map(task => (
-                <TaskItem key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} getSubjectName={getSubjectName} getSubjectColor={getSubjectColor} getCategoryIcon={getCategoryIcon} />
+                <TaskItem key={task.id} task={task} onToggle={handleToggle} onDelete={handleDelete} getSubjectName={getSubjectName} getSubjectColor={getSubjectColor} getCategoryIcon={getCategoryIcon} isDeleting={deletingTaskIds.has(task.id)} />
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {toastMessage && (
+        <div className="fixed bottom-5 right-5 z-50 rounded-xl border border-red-500/35 bg-red-500/10 px-3 py-2 text-xs text-red-200 shadow-lg backdrop-blur">
+          {toastMessage}
         </div>
       )}
     </div>
@@ -440,7 +530,7 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
 }
 
 function TaskItem({
-  task, onToggle, onDelete, getSubjectName, getSubjectColor, getCategoryIcon, isOverdue = false, isToday = false,
+  task, onToggle, onDelete, getSubjectName, getSubjectColor, getCategoryIcon, isDeleting = false, isOverdue = false, isToday = false,
 }: {
   task: Task
   onToggle: (task: Task) => void
@@ -448,6 +538,7 @@ function TaskItem({
   getSubjectName: (id: string | null) => string | null
   getSubjectColor: (id: string | null) => string | null
   getCategoryIcon: (cat: Task['category']) => React.ReactNode
+  isDeleting?: boolean
   isOverdue?: boolean
   isToday?: boolean
 }) {
@@ -496,7 +587,13 @@ function TaskItem({
         </div>
       </div>
 
-      <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 text-[var(--muted-fg)] hover:text-red-500 hover:bg-red-500/10 transition-smooth" onClick={() => onDelete(task)}>
+      <Button
+        variant="ghost"
+        size="icon"
+        disabled={isDeleting}
+        className="h-7 w-7 opacity-0 group-hover:opacity-100 text-[var(--muted-fg)] hover:text-red-500 hover:bg-red-500/10 transition-smooth disabled:opacity-50"
+        onClick={() => onDelete(task)}
+      >
         <Trash2 className="h-3 w-3" />
       </Button>
     </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { TOKExhibition, TOKExhibitionObject, TOKPrompt, TOK_EXHIBITION_STATUSES } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -44,7 +44,7 @@ interface TOKExhibitionSectionProps {
 
 export function TOKExhibitionSection({ initialExhibition, initialObjects, initialUserPrompts }: TOKExhibitionSectionProps) {
   const [exhibition, setExhibition] = useState<TOKExhibition | null>(initialExhibition)
-  const [objects] = useState<TOKExhibitionObject[]>(initialObjects)
+  const [objects, setObjects] = useState<TOKExhibitionObject[]>(initialObjects)
   const [userPrompts, setUserPrompts] = useState<TOKPrompt[]>(initialUserPrompts)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [prompt, setPrompt] = useState(exhibition?.prompt || '')
@@ -66,6 +66,18 @@ export function TOKExhibitionSection({ initialExhibition, initialObjects, initia
   const handlePromptSelect = (prompt: string) => {
   setPrompt(prompt)
 }
+
+  useEffect(() => {
+    setExhibition(initialExhibition)
+  }, [initialExhibition])
+
+  useEffect(() => {
+    setObjects(initialObjects)
+  }, [initialObjects])
+
+  useEffect(() => {
+    setUserPrompts(initialUserPrompts)
+  }, [initialUserPrompts])
 
   const handleSave = async () => {
     const supabase = createClient()

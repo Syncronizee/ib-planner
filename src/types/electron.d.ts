@@ -6,6 +6,15 @@ export {}
 type PrimitiveFilter = string | number | boolean | null
 type TableFilters = Record<string, PrimitiveFilter>
 type Unsubscribe = () => void
+type FocusTimerOverlayPayload = {
+  subject: string
+  subjectColor: string | null
+  objective: string
+  timeText: string
+  mode: 'remaining' | 'elapsed'
+  paused: boolean
+  progressPercent: number | null
+}
 
 declare global {
   interface Window {
@@ -92,6 +101,9 @@ declare global {
         quit: () => Promise<void>
         minimize: () => Promise<void>
         maximize: () => Promise<void>
+        openFocusTimer: (payload: FocusTimerOverlayPayload) => Promise<void>
+        updateFocusTimer: (payload: FocusTimerOverlayPayload) => Promise<void>
+        closeFocusTimer: () => Promise<void>
       }
       platform: {
         isOnline: () => Promise<boolean>

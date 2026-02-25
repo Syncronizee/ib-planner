@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { TOKKnowledgeQuestion, AREAS_OF_KNOWLEDGE, WAYS_OF_KNOWING } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,6 +32,10 @@ export function TOKKnowledgeQuestionsSection({ initialQuestions }: TOKKnowledgeQ
   const [selectedWOK, setSelectedWOK] = useState<string[]>([])
   const [notes, setNotes] = useState('')
   const router = useRouter()
+
+  useEffect(() => {
+    setQuestions(initialQuestions)
+  }, [initialQuestions])
 
   const handleSave = async () => {
     const supabase = createClient()
@@ -82,6 +86,7 @@ export function TOKKnowledgeQuestionsSection({ initialQuestions }: TOKKnowledgeQ
 
     if (!error) {
       setQuestions(questions.filter(q => q.id !== kq.id))
+      router.refresh()
     }
   }
 

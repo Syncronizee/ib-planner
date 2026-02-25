@@ -127,6 +127,7 @@ export function FocusSession({
   const [ambientMode, setAmbientMode] = useState(false)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const clockRef = useRef<NodeJS.Timeout | null>(null)
+  const overlayOpenedRef = useRef(false)
 
   const [showSpotify, setShowSpotify] = useState(false)
   const [spotifyUrl, setSpotifyUrl] = useState(DEFAULT_PLAYLISTS[0].url)
@@ -302,6 +303,84 @@ export function FocusSession({
   const focusPanelClass = ambientMode
     ? 'bg-slate-950/85 border-slate-600/35'
     : 'bg-[var(--card)]/85 border-[var(--border)]'
+  const overlayObjective = selectedTask?.title?.trim() || taskSuggestion.trim() || 'Focus session'
+  const overlaySubject = selectedSubject?.name?.trim() || 'General'
+  const overlaySubjectColor = selectedSubjectDotColor
+  const isDesktopMiniTimerAvailable = isElectronRuntime() && Boolean(window.electronAPI?.app?.openFocusTimer)
+
+  const handleReopenMiniTimer = () => {
+    if (!isDesktopMiniTimerAvailable || !window.electronAPI?.app) {
+      return
+    }
+
+    overlayOpenedRef.current = true
+    void window.electronAPI.app
+      .openFocusTimer({
+        subject: overlaySubject,
+        subjectColor: overlaySubjectColor,
+        objective: overlayObjective,
+        timeText: formatTime(displaySeconds),
+        mode: isCountdown ? 'remaining' : 'elapsed',
+        paused: !isRunning,
+        progressPercent: isCountdown ? progress : null,
+      })
+      .catch(() => {})
+  }
+
+  useEffect(() => {
+    if (!isElectronRuntime() || !window.electronAPI?.app) {
+      return
+    }
+
+    if (phase === 'active' && !overlayOpenedRef.current) {
+      overlayOpenedRef.current = true
+      void window.electronAPI.app
+        .openFocusTimer({
+          subject: overlaySubject,
+          subjectColor: overlaySubjectColor,
+          objective: overlayObjective,
+          timeText: formatTime(displaySeconds),
+          mode: isCountdown ? 'remaining' : 'elapsed',
+          paused: !isRunning,
+          progressPercent: isCountdown ? progress : null,
+        })
+        .catch(() => {})
+      return
+    }
+
+    if (phase === 'active') {
+      return
+    }
+
+    overlayOpenedRef.current = false
+    void window.electronAPI.app.closeFocusTimer?.().catch(() => {})
+  }, [displaySeconds, isCountdown, isRunning, overlayObjective, overlaySubject, overlaySubjectColor, phase, progress])
+
+  useEffect(() => {
+    if (!isElectronRuntime() || !window.electronAPI?.app || phase !== 'active') {
+      return
+    }
+
+    void window.electronAPI.app
+      .updateFocusTimer({
+        subject: overlaySubject,
+        subjectColor: overlaySubjectColor,
+        objective: overlayObjective,
+        timeText: formatTime(displaySeconds),
+        mode: isCountdown ? 'remaining' : 'elapsed',
+        paused: !isRunning,
+        progressPercent: isCountdown ? progress : null,
+      })
+      .catch(() => {})
+  }, [displaySeconds, isCountdown, isRunning, overlayObjective, overlaySubject, overlaySubjectColor, phase, progress])
+
+  useEffect(() => {
+    return () => {
+      if (isElectronRuntime() && window.electronAPI?.app?.closeFocusTimer) {
+        void window.electronAPI.app.closeFocusTimer().catch(() => {})
+      }
+    }
+  }, [])
 
   if (phase === 'setup') {
     return (
@@ -602,6 +681,19 @@ export function FocusSession({
         </button>
 
         <div className="flex items-center gap-3">
+          {isDesktopMiniTimerAvailable && (
+            <button
+              onClick={handleReopenMiniTimer}
+              className={`px-3 py-2 rounded-lg transition-smooth border flex items-center gap-1.5 ${
+                focusMutedTextClass
+              } border-[var(--border)] hover:bg-[var(--muted)] ${ambientMode ? 'hover:text-slate-100' : 'hover:text-[var(--card-fg)]'}`}
+              title="Reopen mini timer"
+            >
+              <Clock className="h-4 w-4" />
+              <span className="text-xs font-medium">Mini Timer</span>
+            </button>
+          )}
+
           <button
             onClick={() => setAmbientMode((prev) => !prev)}
             className={`p-2 rounded-lg ${focusMutedTextClass} hover:bg-[var(--muted)] transition-smooth ${

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CASExperience, CASReflection, CASExperienceOutcome } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { ExperienceDialog } from '@/components/cas/experience-dialog'
@@ -26,6 +26,18 @@ export function CASExperiencesList({
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingExperience, setEditingExperience] = useState<CASExperience | null>(null)
   const router = useRouter()
+
+  useEffect(() => {
+    setExperiences(initialExperiences)
+  }, [initialExperiences])
+
+  useEffect(() => {
+    setReflections(initialReflections)
+  }, [initialReflections])
+
+  useEffect(() => {
+    setOutcomes(initialOutcomes)
+  }, [initialOutcomes])
 
   const handleSave = async (data: {
     title: string
@@ -127,6 +139,7 @@ export function CASExperiencesList({
       setExperiences(experiences.filter(e => e.id !== experience.id))
       setReflections(reflections.filter(r => r.experience_id !== experience.id))
       setOutcomes(outcomes.filter(o => o.experience_id !== experience.id))
+      router.refresh()
     }
   }
 
@@ -153,8 +166,8 @@ export function CASExperiencesList({
       </div>
 
       {experiences.length === 0 ? (
-        <div className="text-center py-12 border-2 border-dashed rounded-lg">
-          <p className="text-muted-foreground mb-4">No CAS experiences yet. Start logging your activities!</p>
+        <div className="text-center py-12 border-2 border-dashed border-[var(--border)] rounded-lg">
+          <p className="text-[var(--muted-fg)] mb-4">No CAS experiences yet. Start logging your activities!</p>
           <Button onClick={handleAdd}>
             <Plus className="h-4 w-4 mr-2" />
             Add Your First Experience

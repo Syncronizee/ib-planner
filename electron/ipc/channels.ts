@@ -50,6 +50,9 @@ export const IPC_CHANNELS = {
     QUIT: 'app:quit',
     MINIMIZE: 'app:minimize',
     MAXIMIZE: 'app:maximize',
+    OPEN_FOCUS_TIMER: 'app:openFocusTimer',
+    UPDATE_FOCUS_TIMER: 'app:updateFocusTimer',
+    CLOSE_FOCUS_TIMER: 'app:closeFocusTimer',
   },
   PLATFORM: {
     IS_ONLINE: 'platform:isOnline',

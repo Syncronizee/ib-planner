@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { TOKEssay, TOKPrompt, TOK_ESSAY_STATUSES } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { PromptSelector } from '@/components/tok/prompt-selector'
@@ -53,6 +53,14 @@ export function TOKEssaySection({ initialEssay, initialUserPrompts }: TOKEssaySe
     essay?.deadline ? new Date(essay.deadline) : undefined
   )
   const router = useRouter()
+
+  useEffect(() => {
+    setEssay(initialEssay)
+  }, [initialEssay])
+
+  useEffect(() => {
+    setUserPrompts(initialUserPrompts)
+  }, [initialUserPrompts])
 
   const handleSave = async () => {
     const supabase = createClient()

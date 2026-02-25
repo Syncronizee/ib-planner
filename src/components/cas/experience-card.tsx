@@ -93,6 +93,7 @@ export function ExperienceCard({
 
     if (!error) {
       onReflectionsChange(reflections.filter(r => r.id !== reflection.id))
+      router.refresh()
     }
   }
 
@@ -119,7 +120,7 @@ export function ExperienceCard({
                 <Badge variant="outline" className="text-xs">CAS Project</Badge>
               )}
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-sm text-[var(--muted-fg)]">
               <span>{format(new Date(experience.date), 'MMM d, yyyy')}</span>
               <span>•</span>
               <span>{experience.hours}h</span>
@@ -145,20 +146,20 @@ export function ExperienceCard({
       </CardHeader>
       <CardContent className="space-y-3">
         {experience.description && (
-          <p className="text-sm text-muted-foreground">{experience.description}</p>
+          <p className="text-sm text-[var(--muted-fg)]">{experience.description}</p>
         )}
         
         <div className="flex items-center gap-4 text-sm">
           <button 
             onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+            className="flex items-center gap-1 text-[var(--muted-fg)] hover:text-[var(--card-fg)]"
           >
             <MessageSquare className="h-4 w-4" />
             {reflections.length} reflection{reflections.length !== 1 ? 's' : ''}
             {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
           {outcomes.length > 0 && (
-            <span className="text-muted-foreground">
+            <span className="text-[var(--muted-fg)]">
               Outcomes: {outcomes.map(o => o.outcome_number).sort().join(', ')}
             </span>
           )}
@@ -175,7 +176,7 @@ export function ExperienceCard({
             </div>
 
             {reflections.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center border-2 border-dashed rounded-lg">
+              <p className="text-sm text-[var(--muted-fg)] py-4 text-center border-2 border-dashed border-[var(--border)] rounded-lg">
                 No reflections yet. Add one to document your learning.
               </p>
             ) : (
@@ -185,10 +186,10 @@ export function ExperienceCard({
                   .map(reflection => (
                     <div 
                       key={reflection.id}
-                      className="p-3 bg-muted/50 rounded-lg space-y-2"
+                      className="p-3 bg-[var(--muted)]/50 rounded-lg space-y-2"
                     >
                       <div className="flex justify-between items-start">
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-[var(--muted-fg)]">
                           {format(new Date(reflection.date), 'MMM d, yyyy')}
                         </span>
                         <div className="flex gap-1">

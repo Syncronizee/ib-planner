@@ -161,12 +161,16 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
       const isOnline = window.electronAPI?.platform?.isOnline
         ? await window.electronAPI.platform.isOnline()
         : navigator.onLine
+      const hasAuthToken = window.electronAPI?.auth?.getToken
+        ? Boolean(await window.electronAPI.auth.getToken())
+        : false
       const status = window.electronAPI?.sync?.status
         ? await window.electronAPI.sync.status()
         : null
 
       const shouldPrime =
         Boolean(isOnline) &&
+        hasAuthToken &&
         Boolean(window.electronAPI?.sync?.start) &&
         (snapshot.totalRows === 0 || !status?.lastSyncedAt)
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { TOKNote, AREAS_OF_KNOWLEDGE, WAYS_OF_KNOWING } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,6 +15,10 @@ interface TOKNotesSectionProps {
 export function TOKNotesSection({ initialNotes }: TOKNotesSectionProps) {
   const [notes, setNotes] = useState<TOKNote[]>(initialNotes)
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setNotes(initialNotes)
+  }, [initialNotes])
 
   const getNote = (type: 'aok' | 'wok', name: string) => {
     return notes.find(n => n.category_type === type && n.category_name === name)?.content || ''

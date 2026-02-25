@@ -40,13 +40,13 @@ export default async function CASPage() {
     : { data: [] }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen app-bg">
       <Header email={user?.email || ''} />
       
       <main className="max-w-4xl mx-auto px-4 sm:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold">CAS Tracking</h1>
-          <p className="text-muted-foreground">Creativity, Activity, Service</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-[var(--card-fg)]">CAS Tracking</h1>
+          <p className="text-[var(--muted-fg)]">Creativity, Activity, Service</p>
         </div>
 
         <div className="space-y-8">

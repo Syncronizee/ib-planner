@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, net, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, net, screen, session, shell } from 'electron'
 import { fork, type ChildProcess } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
@@ -43,6 +43,7 @@ let localDatabaseService: LocalDatabaseService | null = null
 let syncManager: SyncManager | null = null
 let tokenStore: TokenStore | null = null
 let mainWindow: BrowserWindow | null = null
+let focusTimerWindow: BrowserWindow | null = null
 let manualOfflineMode = false
 let requestBlockerInstalled = false
 let networkWatchTimer: NodeJS.Timeout | null = null
@@ -68,6 +69,16 @@ const appUpdateState: AppUpdateState = {
   latestVersion: null,
   message: 'Updates are only available in packaged builds.',
   error: null,
+}
+
+type FocusTimerOverlayPayload = {
+  subject: string
+  subjectColor: string | null
+  objective: string
+  timeText: string
+  mode: 'remaining' | 'elapsed'
+  paused: boolean
+  progressPercent: number | null
 }
 
 function formatError(error: unknown) {
@@ -267,6 +278,331 @@ function resolveStandaloneServerPath() {
   }
 
   return app.isPackaged ? packagedCandidates[0] : devCandidates[0]
+}
+
+function escapeHtml(text: string) {
+  return text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
+function buildFocusTimerHtml(payload: FocusTimerOverlayPayload) {
+  const modeLabel = payload.mode === 'remaining' ? 'Remaining' : 'Elapsed'
+  const statusText = payload.paused ? `${modeLabel} • Paused` : modeLabel
+  const objective = payload.objective.trim() || 'No objective set'
+  const subject = payload.subject.trim() || 'General'
+  const subjectColor = payload.subjectColor?.trim() || '#64748b'
+  const circumference = 2 * Math.PI * 29
+  const hasCountdown = payload.mode === 'remaining' && typeof payload.progressPercent === 'number'
+  const safeProgress = hasCountdown ? Math.max(0, Math.min(1, payload.progressPercent ?? 0)) : 0
+  const dashOffset = hasCountdown ? circumference * (1 - safeProgress) : circumference
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Focus Timer</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: "SF Pro Text", "Segoe UI", sans-serif;
+      background: transparent;
+    }
+    .card {
+      width: 100%;
+      height: 100%;
+      border-radius: 14px;
+      padding: 8px 10px 8px 8px;
+      color: #f8fafc;
+      background: rgba(2, 6, 23, 0.86);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      box-shadow: 0 10px 30px rgba(2, 6, 23, 0.5);
+      backdrop-filter: blur(10px);
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      align-items: center;
+      gap: 10px;
+      position: relative;
+      -webkit-app-region: drag;
+    }
+    .close-btn {
+      position: absolute;
+      top: 4px;
+      right: 6px;
+      width: 18px;
+      height: 18px;
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+      background: rgba(148, 163, 184, 0.16);
+      color: #e2e8f0;
+      font-size: 11px;
+      line-height: 18px;
+      text-align: center;
+      -webkit-app-region: no-drag;
+    }
+    .circle-wrap {
+      position: relative;
+      width: 76px;
+      height: 76px;
+      display: grid;
+      place-items: center;
+    }
+    .circle-wrap svg {
+      width: 76px;
+      height: 76px;
+      transform: rotate(-90deg);
+    }
+    .ring-bg {
+      fill: none;
+      stroke: rgba(148, 163, 184, 0.25);
+      stroke-width: 5;
+    }
+    .ring-progress {
+      fill: none;
+      stroke: #38bdf8;
+      stroke-width: 5;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.8s linear;
+    }
+    .center-dot {
+      position: absolute;
+      width: 56px;
+      height: 56px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+    .timer-center {
+      position: absolute;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.03em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      color: #f8fafc;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+    }
+    .content {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding-right: 14px;
+    }
+    .meta {
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #cbd5e1;
+    }
+    .subject-line {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #e2e8f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .subject-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      flex-shrink: 0;
+      box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.45);
+    }
+    .objective-line {
+      font-size: 11px;
+      color: #cbd5e1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <button class="close-btn" id="closeBtn" title="Close">x</button>
+    <div class="circle-wrap" id="circleWrap" style="opacity:${hasCountdown ? '1' : '0.8'}">
+      <svg viewBox="0 0 68 68" aria-hidden="true">
+        <circle class="ring-bg" cx="34" cy="34" r="29"></circle>
+        <circle
+          class="ring-progress"
+          id="ringProgress"
+          cx="34"
+          cy="34"
+          r="29"
+          stroke-dasharray="${escapeHtml(String(circumference))}"
+          stroke-dashoffset="${escapeHtml(String(dashOffset))}"
+          style="opacity:${hasCountdown ? '1' : '0.22'}"
+        ></circle>
+      </svg>
+      <div class="center-dot"></div>
+      <div class="timer-center" id="timer">${escapeHtml(payload.timeText)}</div>
+    </div>
+    <div class="content">
+      <div class="meta" id="status">${escapeHtml(statusText)}</div>
+      <div class="subject-line">
+        <span class="subject-dot" id="subjectDot" style="background:${escapeHtml(subjectColor)}"></span>
+        <span id="subject">${escapeHtml(subject)}</span>
+      </div>
+      <div class="objective-line" id="objective">${escapeHtml(objective)}</div>
+    </div>
+  </div>
+  <script>
+    const closeBtn = document.getElementById('closeBtn')
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => window.close())
+    }
+  </script>
+</body>
+</html>`
+}
+
+function isBenignOverlayLoadError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const code = 'code' in error ? String(error.code) : ''
+  const errno = 'errno' in error ? Number(error.errno) : null
+  return code === 'ERR_FAILED' || errno === -2
+}
+
+async function openFocusTimerWindow(payload: FocusTimerOverlayPayload) {
+  if (focusTimerWindow && !focusTimerWindow.isDestroyed()) {
+    await updateFocusTimerWindow(payload)
+    if (!focusTimerWindow.isVisible()) {
+      focusTimerWindow.showInactive()
+    }
+    return
+  }
+
+  const width = 360
+  const height = 112
+  const { x: areaX, y: areaY, width: areaWidth } = screen
+    .getDisplayNearestPoint(screen.getCursorScreenPoint())
+    .workArea
+
+  const window = new BrowserWindow({
+    width,
+    height,
+    x: areaX + areaWidth - width - 20,
+    y: areaY + 20,
+    show: false,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    autoHideMenuBar: true,
+    hasShadow: true,
+    title: 'Focus Timer',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  })
+
+  focusTimerWindow = window
+  window.setAlwaysOnTop(true, 'screen-saver')
+  window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+
+  window.on('closed', () => {
+    if (focusTimerWindow === window) {
+      focusTimerWindow = null
+    }
+  })
+
+  try {
+    await window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildFocusTimerHtml(payload))}`)
+    if (!window.isDestroyed()) {
+      window.showInactive()
+    }
+  } catch (error) {
+    if (!window.isDestroyed()) {
+      window.destroy()
+    }
+    if (!isBenignOverlayLoadError(error)) {
+      throw error
+    }
+  }
+}
+
+async function updateFocusTimerWindow(payload: FocusTimerOverlayPayload) {
+  if (!focusTimerWindow || focusTimerWindow.isDestroyed()) {
+    return
+  }
+
+  const objective = payload.objective.trim() || 'No objective set'
+  const subject = payload.subject.trim() || 'General'
+  const subjectColor = payload.subjectColor?.trim() || '#64748b'
+  const modeLabel = payload.mode === 'remaining' ? 'Remaining' : 'Elapsed'
+  const statusText = payload.paused ? `${modeLabel} • Paused` : modeLabel
+  const circumference = 2 * Math.PI * 29
+  const hasCountdown = payload.mode === 'remaining' && typeof payload.progressPercent === 'number'
+  const safeProgress = hasCountdown ? Math.max(0, Math.min(1, payload.progressPercent ?? 0)) : 0
+  const dashOffset = hasCountdown ? circumference * (1 - safeProgress) : circumference
+  const script = `(() => {
+    const timer = document.getElementById('timer')
+    const status = document.getElementById('status')
+    const subject = document.getElementById('subject')
+    const objective = document.getElementById('objective')
+    const subjectDot = document.getElementById('subjectDot')
+    const ringProgress = document.getElementById('ringProgress')
+    const circleWrap = document.getElementById('circleWrap')
+    if (timer) timer.textContent = ${JSON.stringify(payload.timeText)}
+    if (status) status.textContent = ${JSON.stringify(statusText)}
+    if (subject) subject.textContent = ${JSON.stringify(subject)}
+    if (objective) objective.textContent = ${JSON.stringify(objective)}
+    if (subjectDot) subjectDot.style.background = ${JSON.stringify(subjectColor)}
+    if (ringProgress) {
+      ringProgress.setAttribute('stroke-dasharray', ${JSON.stringify(String(circumference))})
+      ringProgress.setAttribute('stroke-dashoffset', ${JSON.stringify(String(dashOffset))})
+      ringProgress.style.opacity = ${hasCountdown ? JSON.stringify('1') : JSON.stringify('0.22')}
+    }
+    if (circleWrap) {
+      circleWrap.style.opacity = ${hasCountdown ? JSON.stringify('1') : JSON.stringify('0.8')}
+    }
+  })();`
+
+  try {
+    await focusTimerWindow.webContents.executeJavaScript(script, true)
+  } catch (error) {
+    if (!focusTimerWindow || focusTimerWindow.isDestroyed() || isBenignOverlayLoadError(error)) {
+      return
+    }
+    throw error
+  }
+}
+
+function closeFocusTimerWindow() {
+  if (!focusTimerWindow || focusTimerWindow.isDestroyed()) {
+    focusTimerWindow = null
+    return
+  }
+
+  focusTimerWindow.close()
+  focusTimerWindow = null
 }
 
 function resolveStaticIndexPath() {
@@ -480,7 +816,9 @@ async function createMainWindow() {
   if (isDev) {
     const devUrl = process.env.ELECTRON_START_URL || 'http://localhost:3000'
     await window.loadURL(devUrl, { extraHeaders: 'x-electron-runtime: 1\n' })
-    window.webContents.openDevTools({ mode: 'detach' })
+    if (process.env.ELECTRON_OPEN_DEVTOOLS === '1') {
+      window.webContents.openDevTools({ mode: 'detach' })
+    }
     return
   }
 
@@ -608,6 +946,15 @@ function registerIpcHandlers() {
     } else {
       mainWindow.maximize()
     }
+  })
+  ipcMain.handle(IPC_CHANNELS.APP.OPEN_FOCUS_TIMER, async (_event, payload: FocusTimerOverlayPayload) => {
+    await openFocusTimerWindow(payload)
+  })
+  ipcMain.handle(IPC_CHANNELS.APP.UPDATE_FOCUS_TIMER, async (_event, payload: FocusTimerOverlayPayload) => {
+    await updateFocusTimerWindow(payload)
+  })
+  ipcMain.handle(IPC_CHANNELS.APP.CLOSE_FOCUS_TIMER, () => {
+    closeFocusTimerWindow()
   })
 
   ipcMain.handle(IPC_CHANNELS.PLATFORM.IS_ONLINE, () => net.isOnline() && !manualOfflineMode)
@@ -807,6 +1154,8 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  closeFocusTimerWindow()
+
   if (nextServerProcess && !nextServerProcess.killed) {
     nextServerProcess.kill()
   }

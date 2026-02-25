@@ -137,13 +137,13 @@ export function ElectronTOKPage() {
   }, [reloadTick, router])
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen app-bg">
       <Header email={email} />
 
       <main className="max-w-4xl mx-auto px-4 sm:px-8 py-8 space-y-4">
         <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold">TOK Tracking</h1>
-          <p className="text-muted-foreground">Theory of Knowledge</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-[var(--card-fg)]">TOK Tracking</h1>
+          <p className="text-[var(--muted-fg)]">Theory of Knowledge</p>
         </div>
 
         {loading ? (

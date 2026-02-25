@@ -6,6 +6,15 @@ type SyncStatusCallback = (status: SyncStatus) => void
 type OnlineStatusCallback = (online: boolean) => void
 type GenericCallback<T> = (payload: T) => void
 type Unsubscribe = () => void
+type FocusTimerOverlayPayload = {
+  subject: string
+  subjectColor: string | null
+  objective: string
+  timeText: string
+  mode: 'remaining' | 'elapsed'
+  paused: boolean
+  progressPercent: number | null
+}
 
 function subscribe<T>(channel: string, callback: GenericCallback<T>): Unsubscribe {
   const listener = (_event: Electron.IpcRendererEvent, payload: T) => callback(payload)
@@ -125,6 +134,11 @@ const electronApi = {
     quit: () => ipcRenderer.invoke(IPC_CHANNELS.APP.QUIT) as Promise<void>,
     minimize: () => ipcRenderer.invoke(IPC_CHANNELS.APP.MINIMIZE) as Promise<void>,
     maximize: () => ipcRenderer.invoke(IPC_CHANNELS.APP.MAXIMIZE) as Promise<void>,
+    openFocusTimer: (payload: FocusTimerOverlayPayload) =>
+      ipcRenderer.invoke(IPC_CHANNELS.APP.OPEN_FOCUS_TIMER, payload) as Promise<void>,
+    updateFocusTimer: (payload: FocusTimerOverlayPayload) =>
+      ipcRenderer.invoke(IPC_CHANNELS.APP.UPDATE_FOCUS_TIMER, payload) as Promise<void>,
+    closeFocusTimer: () => ipcRenderer.invoke(IPC_CHANNELS.APP.CLOSE_FOCUS_TIMER) as Promise<void>,
   },
 
   platform: {

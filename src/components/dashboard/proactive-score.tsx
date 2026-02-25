@@ -90,12 +90,22 @@ export function ProactiveScore({ tasks: initialTasks, subjects }: ProactiveScore
   const [tasks, setTasks] = useState(initialTasks)
 
   useEffect(() => {
-    const handler = (e: CustomEvent<Task[]>) => setTasks(e.detail)
+    setTasks(initialTasks)
+  }, [initialTasks])
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<Task[] | null | undefined>).detail
+      if (Array.isArray(detail)) {
+        setTasks(detail)
+      }
+    }
     window.addEventListener('tasks-updated', handler as EventListener)
     return () => window.removeEventListener('tasks-updated', handler as EventListener)
   }, [])
 
-  const completedWithDue = tasks.filter(t => t.is_completed && t.due_date && t.completed_at)
+  const safeTasks = Array.isArray(tasks) ? tasks : []
+  const completedWithDue = safeTasks.filter(t => t.is_completed && t.due_date && t.completed_at)
   const subjectsById = new Map(subjects.map((subject) => [subject.id, subject]))
 
   const proactive = completedWithDue.filter(t => classifyCompletion(t) === 'proactive').length
@@ -124,7 +134,7 @@ export function ProactiveScore({ tasks: initialTasks, subjects }: ProactiveScore
   const onTimePercent = totalWeighted > 0 ? Math.round((onTimeWeighted / totalWeighted) * 100) : 0
   const reactivePercent = totalWeighted > 0 ? Math.round((reactiveWeighted / totalWeighted) * 100) : 0
 
-  const streak = calculateStreak(tasks)
+  const streak = calculateStreak(safeTasks)
 
   return (
     <div className="p-5">
