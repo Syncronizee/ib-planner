@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type Database from 'better-sqlite3'
+import { normalizeFocusAreaProgressType } from '../focus-area-progress'
 import type { Assessment, Subject, Task } from '../shared-types'
 
 export const SYNC_TABLES = [
@@ -11,11 +12,13 @@ export const SYNC_TABLES = [
   'study_resources',
   'syllabus_topics',
   'weakness_tags',
+  'focus_area_progress',
   'error_logs',
   'notes',
   'note_images',
   'energy_checkins',
   'weekly_plans',
+  'weekly_priorities',
   'study_sessions',
   'scheduled_study_sessions',
   'school_events',
@@ -53,11 +56,13 @@ const JSON_COLUMNS: Record<SyncTable, string[]> = {
   study_resources: [],
   syllabus_topics: [],
   weakness_tags: [],
+  focus_area_progress: [],
   error_logs: [],
   notes: ['content', 'drawing_data'],
   note_images: [],
   energy_checkins: [],
   weekly_plans: [],
+  weekly_priorities: [],
   study_sessions: [],
   scheduled_study_sessions: [],
   school_events: [],
@@ -79,13 +84,15 @@ const BOOLEAN_COLUMNS: Record<SyncTable, string[]> = {
   grade_history: [],
   timetable_entries: [],
   study_resources: [],
-  syllabus_topics: ['is_completed'],
+  syllabus_topics: ['is_completed', 'reminder_enabled'],
   weakness_tags: ['is_resolved'],
+  focus_area_progress: [],
   error_logs: ['is_resolved'],
   notes: ['has_drawing'],
   note_images: [],
   energy_checkins: [],
   weekly_plans: ['hardest_task_completed', 'weakest_subject_completed'],
+  weekly_priorities: ['is_completed'],
   study_sessions: [],
   scheduled_study_sessions: [],
   school_events: ['all_day'],
@@ -154,6 +161,21 @@ function serializeValue(value: QueryValue): Primitive {
   }
 
   return value
+}
+
+function normalizeRowForTable(table: SyncTable, row: RowRecord): RowRecord {
+  if (table !== 'focus_area_progress') {
+    return row
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(row, 'focus_area_type')) {
+    return row
+  }
+
+  return {
+    ...row,
+    focus_area_type: normalizeFocusAreaProgressType(row.focus_area_type, row.focus_area_id),
+  }
 }
 
 function deserializeRow<T>(table: SyncTable, row: Record<string, unknown>): T {
@@ -271,7 +293,7 @@ export class LocalDatabaseService {
     const timestamp = nowIso()
     const id = (typeof data.id === 'string' && data.id.length > 0) ? data.id : randomUUID()
 
-    const payload: RowRecord = {
+    const payload = normalizeRowForTable(table, {
       ...data,
       id,
       remote_id: typeof data.remote_id === 'string' ? data.remote_id : null,
@@ -280,7 +302,7 @@ export class LocalDatabaseService {
       synced_at: null,
       is_dirty: 1,
       deleted_at: null,
-    }
+    })
 
     const columns = Object.keys(payload)
     const placeholders = columns.map(() => '?').join(', ')
@@ -305,12 +327,12 @@ export class LocalDatabaseService {
     }
 
     const timestamp = nowIso()
-    const payload: RowRecord = {
+    const payload = normalizeRowForTable(table, {
       ...patch,
       updated_at: timestamp,
       is_dirty: 1,
       synced_at: null,
-    }
+    })
 
     const columns = Object.keys(payload)
     if (columns.length === 0) {
@@ -404,7 +426,7 @@ export class LocalDatabaseService {
     const id = typeof record.id === 'string' ? record.id : randomUUID()
     const timestamp = nowIso()
 
-    const payload: RowRecord = {
+    const payload = normalizeRowForTable(table, {
       ...record,
       id,
       remote_id: typeof record.id === 'string' ? record.id : (typeof record.remote_id === 'string' ? record.remote_id : null),
@@ -413,7 +435,7 @@ export class LocalDatabaseService {
       deleted_at: record.deleted_at ?? null,
       updated_at: typeof record.updated_at === 'string' ? record.updated_at : timestamp,
       created_at: typeof record.created_at === 'string' ? record.created_at : timestamp,
-    }
+    })
 
     const columns = Object.keys(payload)
     const placeholders = columns.map(() => '?').join(', ')

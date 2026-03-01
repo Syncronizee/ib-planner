@@ -8,10 +8,10 @@ import { TasksSection } from './tasks-section'
 import { CalendarPreview } from './calendar-preview'
 import { TimetableSection } from './timetable-section'
 import { EnergyCheckinWrapper } from '@/components/energy/energy-checkin-wrapper'
-import { WeeklyPlanWidget } from '@/components/planning/weekly-plan-widget'
-import { WeaknessIndicator } from '@/components/dashboard/weakness-indicator'
+import { WeeklyPlanWidget } from '@/components/dashboard/weekly-plan-widget'
+import { FocusAreas } from '@/components/dashboard/focus-areas'
 import { DashboardOverviewCard } from '@/components/dashboard/dashboard-overview-card'
-import { ProactiveScore } from '@/components/dashboard/proactive-score'
+import { PracticeTracker } from '@/components/dashboard/practice-tracker'
 import { StudySessionsWidget } from '@/components/dashboard/study-sessions-widget'
 import { SessionLoggerFab } from '@/components/study/session-logger-fab'
 import { GraduationCap, Target, TrendingUp, CheckSquare } from 'lucide-react'
@@ -24,9 +24,11 @@ import type {
   SchoolEvent,
   StudySession,
   Subject,
+  SyllabusTopic,
   Task,
   TimetableEntry,
-  WeeklyPlan,
+  WeaknessTag,
+  WeeklyPriority,
 } from '@/lib/types'
 
 type OfflineDashboardProps = {
@@ -37,8 +39,10 @@ type Snapshot = {
   subjects: Subject[]
   tasks: Task[]
   assessments: Assessment[]
+  weaknesses: WeaknessTag[]
+  syllabusTopics: SyllabusTopic[]
   timetableEntries: TimetableEntry[]
-  weeklyPlan: WeeklyPlan | null
+  weeklyPriorities: WeeklyPriority[]
   studySessions: StudySession[]
   scheduledSessions: ScheduledStudySession[]
   schoolEvents: SchoolEvent[]
@@ -49,8 +53,10 @@ const EMPTY_SNAPSHOT: Snapshot = {
   subjects: [],
   tasks: [],
   assessments: [],
+  weaknesses: [],
+  syllabusTopics: [],
   timetableEntries: [],
-  weeklyPlan: null,
+  weeklyPriorities: [],
   studySessions: [],
   scheduledSessions: [],
   schoolEvents: [],
@@ -64,8 +70,10 @@ async function loadLocalSnapshot(userId: string): Promise<Snapshot> {
     subjects,
     tasks,
     assessments,
+    weaknesses,
+    syllabusTopics,
     timetableEntries,
-    weeklyPlans,
+    weeklyPriorities,
     studySessions,
     scheduledSessions,
     schoolEvents,
@@ -73,18 +81,25 @@ async function loadLocalSnapshot(userId: string): Promise<Snapshot> {
     invokeDesktopDb<Subject[]>('getSubjects', [userId]),
     invokeDesktopDb<Task[]>('getTasks', [userId]),
     invokeDesktopDb<Assessment[]>('getAssessments', [userId]),
+    invokeDesktopDb<WeaknessTag[]>('queryTable', [
+      'weakness_tags',
+      { userId, orderBy: 'created_at', ascending: true },
+    ]),
+    invokeDesktopDb<SyllabusTopic[]>('queryTable', [
+      'syllabus_topics',
+      { userId, orderBy: 'created_at', ascending: true },
+    ]),
     invokeDesktopDb<TimetableEntry[]>('queryTable', [
       'timetable_entries',
       { userId, orderBy: 'start_time', ascending: true },
     ]),
-    invokeDesktopDb<WeeklyPlan[]>('queryTable', [
-      'weekly_plans',
+    invokeDesktopDb<WeeklyPriority[]>('queryTable', [
+      'weekly_priorities',
       {
         userId,
-        filters: { week_start_date: format(weekStart, 'yyyy-MM-dd') },
-        orderBy: 'created_at',
-        ascending: false,
-        limit: 1,
+        filters: { week_start: format(weekStart, 'yyyy-MM-dd') },
+        orderBy: 'priority_number',
+        ascending: true,
       },
     ]),
     invokeDesktopDb<StudySession[]>('queryTable', [
@@ -105,8 +120,10 @@ async function loadLocalSnapshot(userId: string): Promise<Snapshot> {
     subjects.length +
     tasks.length +
     assessments.length +
+    weaknesses.length +
+    syllabusTopics.length +
     timetableEntries.length +
-    weeklyPlans.length +
+    weeklyPriorities.length +
     studySessions.length +
     scheduledSessions.length +
     schoolEvents.length
@@ -115,8 +132,10 @@ async function loadLocalSnapshot(userId: string): Promise<Snapshot> {
     subjects,
     tasks,
     assessments,
+    weaknesses,
+    syllabusTopics,
     timetableEntries,
-    weeklyPlan: weeklyPlans[0] ?? null,
+    weeklyPriorities,
     studySessions,
     scheduledSessions,
     schoolEvents,
@@ -220,8 +239,10 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
     subjects,
     tasks,
     assessments,
+    weaknesses,
+    syllabusTopics,
     timetableEntries,
-    weeklyPlan,
+    weeklyPriorities,
     studySessions,
     scheduledSessions,
     schoolEvents,
@@ -308,16 +329,25 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="glass-card hover-lift overflow-hidden">
-                <WeeklyPlanWidget plan={weeklyPlan} tasks={tasks} subjects={subjects} />
+                <WeeklyPlanWidget priorities={weeklyPriorities} subjects={subjects} />
               </div>
               <div className="glass-card hover-lift overflow-hidden">
-                <WeaknessIndicator subjects={subjects} tasks={tasks} />
+                <FocusAreas
+                  subjects={subjects}
+                  assessments={assessments}
+                  tasks={tasks}
+                  weaknesses={weaknesses}
+                />
               </div>
-              <div className="glass-card hover-lift overflow-hidden">
-                <ProactiveScore tasks={tasks} subjects={subjects} />
-              </div>
+            </div>
+
+            <div className="glass-card hover-lift overflow-hidden">
+              <PracticeTracker
+                subjects={subjects}
+                syllabusTopics={syllabusTopics}
+              />
             </div>
 
             <div className="glass-card hover-lift overflow-hidden">

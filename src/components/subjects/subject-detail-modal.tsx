@@ -1,17 +1,21 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { 
-  Subject, 
-  GradeHistory, 
-  Assessment, 
+import {
+  Subject,
+  GradeHistory,
+  Assessment,
   StudyResource,
   SyllabusTopic,
   WeaknessTag,
   ErrorLog,
-  SUBJECT_COLORS 
+  SUBJECT_COLORS
 } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
+import {
+  formatAssessmentPercentage,
+  getAssessmentAveragePercentage,
+} from '@/lib/assessment-grades'
 import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
@@ -36,6 +40,8 @@ interface SubjectDetailModalProps {
   onOpenChange: (open: boolean) => void
   subject: Subject
   onSubjectUpdate: (subject: Subject) => void
+  initialTab?: string
+  highlightWeaknessId?: string
 }
 
 export function SubjectDetailModal({
@@ -43,8 +49,10 @@ export function SubjectDetailModal({
   onOpenChange,
   subject,
   onSubjectUpdate,
+  initialTab,
+  highlightWeaknessId,
 }: SubjectDetailModalProps) {
-  const [activeTab, setActiveTab] = useState('grades')
+  const [activeTab, setActiveTab] = useState(initialTab || 'grades')
   const [gradeHistory, setGradeHistory] = useState<GradeHistory[]>([])
   const [assessments, setAssessments] = useState<Assessment[]>([])
   const [resources, setResources] = useState<StudyResource[]>([])
@@ -86,16 +94,30 @@ export function SubjectDetailModal({
 
   useEffect(() => {
     if (open) {
-       
+      setActiveTab(initialTab || 'grades')
       fetchAllData()
     }
-  }, [open, fetchAllData])
+  }, [open, initialTab, fetchAllData])
+
+  // Refresh weakness data when notified of external changes (e.g. Quick Log from Focus Areas)
+  useEffect(() => {
+    if (!open) return
+    const handler = async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('weakness_tags')
+        .select('*')
+        .eq('subject_id', subject.id)
+        .order('created_at', { ascending: false })
+      if (data) setWeaknesses(data)
+    }
+    window.addEventListener('weaknesses-updated', handler)
+    return () => window.removeEventListener('weaknesses-updated', handler)
+  }, [open, subject.id])
 
   const unresolvedWeaknesses = weaknesses.filter(w => !w.is_resolved).length
   const unresolvedErrors = errorLogs.filter(e => !e.is_resolved).length
-  const averageScore = assessments.length > 0
-    ? Math.round(assessments.filter(a => a.percentage !== null).reduce((sum, a) => sum + (a.percentage || 0), 0) / assessments.filter(a => a.percentage !== null).length)
-    : null
+  const averageScore = getAssessmentAveragePercentage(assessments)
   const tabTriggerClass = "px-2 sm:px-4 py-1.5 sm:py-2 text-sm font-medium whitespace-nowrap rounded-lg transition-all text-[var(--muted-fg)] data-[state=active]:bg-[var(--accent)] data-[state=active]:text-[var(--accent-fg)] data-[state=active]:border-[var(--accent)] data-[state=active]:shadow-sm hover:bg-[var(--muted)] hover:text-[var(--card-fg)] border border-transparent"
 
   return (
@@ -139,7 +161,7 @@ export function SubjectDetailModal({
               </div>
               {averageScore !== null && (
                 <div className="px-1 sm:px-3 border-l border-[var(--border)] hidden md:block">
-                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold">{averageScore}%</p>
+                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold">{formatAssessmentPercentage(averageScore)}</p>
                   <p className="text-xs text-[var(--muted-fg)]">Avg</p>
                 </div>
               )}
@@ -264,6 +286,7 @@ export function SubjectDetailModal({
                       subject={subject}
                       weaknesses={weaknesses}
                       onWeaknessesChange={setWeaknesses}
+                      highlightWeaknessId={highlightWeaknessId}
                     />
                   </TabsContent>
 

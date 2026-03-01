@@ -9,7 +9,12 @@ import {
   ProductivityRating,
   PRODUCTIVITY_RATINGS,
   SESSION_TYPES,
+  WeeklyPriority,
+  WeaknessTag,
 } from '@/lib/types'
+import { WeaknessReflectionDialog } from '@/components/dashboard/weakness-reflection-dialog'
+import { PriorityCompletionDialog } from '@/components/dashboard/priority-completion-dialog'
+import { getWeekStart, readLocalFocusAreaProgress, writeLocalFocusAreaProgress } from '@/lib/focus-areas'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -40,16 +45,19 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getTaskBankSuggestions } from '@/lib/study-task-bank'
 import { getDesktopUserId, invokeDesktopDb, isElectronRuntime } from '@/lib/electron/offline'
+import { calculateScheduledDurationMinutes } from '@/lib/weekly-planning'
 
 interface FocusSessionProps {
   subjects: Subject[]
   tasks: Task[]
   initialSubjectId?: string
   initialTaskId?: string
+  initialWeaknessId?: string
   initialDurationGoal?: number
   initialSessionType?: SessionType
   initialEnergyLevel?: EnergyLevel
   initialTaskSuggestion?: string
+  initialPriority?: WeeklyPriority | null
   autoStart?: boolean
   plannedSessionId?: string
 }
@@ -103,10 +111,12 @@ export function FocusSession({
   tasks,
   initialSubjectId = '',
   initialTaskId = '',
+  initialWeaknessId,
   initialDurationGoal = 45,
   initialSessionType = 'practice',
   initialEnergyLevel = 'medium',
   initialTaskSuggestion = '',
+  initialPriority = null,
   autoStart = false,
   plannedSessionId,
 }: FocusSessionProps) {
@@ -128,6 +138,9 @@ export function FocusSession({
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const clockRef = useRef<NodeJS.Timeout | null>(null)
   const overlayOpenedRef = useRef(false)
+  const sessionStartedAtMsRef = useRef<number | null>(null)
+  const pauseStartedAtMsRef = useRef<number | null>(null)
+  const pausedDurationMsRef = useRef(0)
 
   const [showSpotify, setShowSpotify] = useState(false)
   const [spotifyUrl, setSpotifyUrl] = useState(DEFAULT_PLAYLISTS[0].url)
@@ -138,6 +151,11 @@ export function FocusSession({
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [discarded, setDiscarded] = useState(false)
+  const [focusSessionWeakness, setFocusSessionWeakness] = useState<{ weakness: WeaknessTag; subjectName: string } | null>(null)
+  const [priorityCompleted, setPriorityCompleted] = useState(Boolean(initialPriority?.is_completed))
+  const [priorityPromptDismissed, setPriorityPromptDismissed] = useState(false)
+  const [prioritySubmitting, setPrioritySubmitting] = useState(false)
+  const [priorityDialogOpen, setPriorityDialogOpen] = useState(false)
 
   useEffect(() => {
     clockRef.current = setInterval(() => setCurrentTime(new Date()), 1000)
@@ -147,42 +165,116 @@ export function FocusSession({
   }, [])
 
   useEffect(() => {
+    if (autoStart && sessionStartedAtMsRef.current === null) {
+      sessionStartedAtMsRef.current = startTime?.getTime() ?? Date.now()
+    }
+  }, [autoStart, startTime])
+
+  useEffect(() => {
+    const syncElapsedSeconds = () => {
+      if (!isRunning || sessionStartedAtMsRef.current === null) {
+        return
+      }
+
+      const elapsed = Math.max(
+        0,
+        Math.floor((Date.now() - sessionStartedAtMsRef.current - pausedDurationMsRef.current) / 1000)
+      )
+
+      if (durationGoal > 0 && elapsed >= durationGoal * 60) {
+        setElapsedSeconds(durationGoal * 60)
+        setIsRunning(false)
+        setPhase('summary')
+        return
+      }
+
+      setElapsedSeconds(elapsed)
+    }
+
     if (isRunning) {
-      intervalRef.current = setInterval(() => {
-        setElapsedSeconds((prev) => {
-          const next = prev + 1
-          if (durationGoal > 0 && next >= durationGoal * 60) {
-            setIsRunning(false)
-            setPhase('summary')
-            return durationGoal * 60
-          }
-          return next
-        })
-      }, 1000)
+      syncElapsedSeconds()
+      intervalRef.current = setInterval(syncElapsedSeconds, 250)
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current)
+      intervalRef.current = null
     }
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
     }
   }, [isRunning, durationGoal])
+
+  useEffect(() => {
+    if (phase !== 'active') {
+      return
+    }
+
+    const syncAfterVisibilityChange = () => {
+      if (!document.hidden && sessionStartedAtMsRef.current !== null) {
+        const elapsed = Math.max(
+          0,
+          Math.floor((Date.now() - sessionStartedAtMsRef.current - pausedDurationMsRef.current) / 1000)
+        )
+        setElapsedSeconds(durationGoal > 0 ? Math.min(elapsed, durationGoal * 60) : elapsed)
+      }
+    }
+
+    document.addEventListener('visibilitychange', syncAfterVisibilityChange)
+    window.addEventListener('focus', syncAfterVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', syncAfterVisibilityChange)
+      window.removeEventListener('focus', syncAfterVisibilityChange)
+    }
+  }, [durationGoal, phase])
 
   const handleStart = () => {
     if (!taskId && !taskSuggestion && taskBankSuggestions.length > 0) {
       setTaskSuggestion(taskBankSuggestions[0])
     }
+    const now = Date.now()
+    sessionStartedAtMsRef.current = now
+    pauseStartedAtMsRef.current = null
+    pausedDurationMsRef.current = 0
     setPhase('active')
     setIsRunning(true)
-    setStartTime(new Date())
+    setStartTime(new Date(now))
     setElapsedSeconds(0)
   }
 
   const handlePauseResume = () => {
-    setIsRunning((prev) => !prev)
+    if (isRunning) {
+      if (sessionStartedAtMsRef.current !== null) {
+        const elapsed = Math.max(
+          0,
+          Math.floor((Date.now() - sessionStartedAtMsRef.current - pausedDurationMsRef.current) / 1000)
+        )
+        setElapsedSeconds(durationGoal > 0 ? Math.min(elapsed, durationGoal * 60) : elapsed)
+      }
+      pauseStartedAtMsRef.current = Date.now()
+      setIsRunning(false)
+      return
+    }
+
+    if (pauseStartedAtMsRef.current !== null) {
+      pausedDurationMsRef.current += Date.now() - pauseStartedAtMsRef.current
+      pauseStartedAtMsRef.current = null
+    }
+
+    setIsRunning(true)
   }
 
   const handleEndSession = (abandoned = false) => {
+    if (isRunning && sessionStartedAtMsRef.current !== null) {
+      const elapsed = Math.max(
+        0,
+        Math.floor((Date.now() - sessionStartedAtMsRef.current - pausedDurationMsRef.current) / 1000)
+      )
+      setElapsedSeconds(durationGoal > 0 ? Math.min(elapsed, durationGoal * 60) : elapsed)
+    }
     setIsRunning(false)
     if (abandoned && elapsedSeconds < 60) {
       router.push('/dashboard')
@@ -215,6 +307,7 @@ export function FocusSession({
       user_id: userId,
       subject_id: subjectId || null,
       task_id: taskId || null,
+      weakness_tag_id: initialWeaknessId || null,
       duration_minutes: actualMinutes,
       duration_goal_minutes: durationGoal > 0 ? durationGoal : null,
       actual_duration_minutes: actualMinutes,
@@ -260,8 +353,218 @@ export function FocusSession({
       }
     }
 
+    // If linked to a weakness, address it then show reflection dialog
+    if (initialWeaknessId) {
+      try {
+        let currentWeakness: WeaknessTag | null = null
+        const localAddressedKey = `weakness-${initialWeaknessId}`
+
+        if (electronRuntime) {
+          if (!userId) {
+            throw new Error('No local user session found.')
+          }
+
+          const localWeaknesses = await invokeDesktopDb<WeaknessTag[]>('queryTable', [
+            'weakness_tags',
+            {
+              userId,
+              filters: { id: initialWeaknessId },
+              limit: 1,
+            },
+          ])
+          currentWeakness = localWeaknesses[0] ?? null
+        } else {
+          const { data } = await supabase
+            .from('weakness_tags')
+            .select('*')
+            .eq('id', initialWeaknessId)
+            .single()
+
+          currentWeakness = (data as WeaknessTag | null) ?? null
+        }
+
+        if (currentWeakness) {
+          if (electronRuntime) {
+            if (!userId) {
+              throw new Error('No local user session found.')
+            }
+
+            await invokeDesktopDb('updateTableRecords', [
+              'weakness_tags',
+              userId,
+              { id: initialWeaknessId },
+              {
+                last_addressed_at: new Date().toISOString(),
+                address_count: ((currentWeakness.address_count as number) ?? 0) + 1,
+              },
+            ])
+
+            const existingProgress = await invokeDesktopDb<Array<{ id: string }>>('queryTable', [
+              'focus_area_progress',
+              {
+                userId,
+                filters: {
+                  week_start: getWeekStart(),
+                  focus_area_id: localAddressedKey,
+                },
+                limit: 1,
+              },
+            ])
+
+            if (existingProgress[0]?.id) {
+              await invokeDesktopDb('updateTableRecords', [
+                'focus_area_progress',
+                userId,
+                { id: existingProgress[0].id },
+                {
+                  focus_area_type: 'weakness',
+                  addressed_at: new Date().toISOString(),
+                  deleted_at: null,
+                },
+              ])
+            } else {
+              await invokeDesktopDb('createTableRecord', [
+                'focus_area_progress',
+                userId,
+                {
+                  user_id: userId,
+                  week_start: getWeekStart(),
+                  focus_area_id: localAddressedKey,
+                  focus_area_type: 'weakness',
+                  addressed_at: new Date().toISOString(),
+                },
+              ])
+            }
+          } else {
+            await supabase.from('weakness_tags').update({
+              last_addressed_at: new Date().toISOString(),
+              address_count: ((currentWeakness.address_count as number) ?? 0) + 1,
+            }).eq('id', initialWeaknessId)
+
+            await supabase.from('focus_area_progress').upsert({
+              week_start: getWeekStart(),
+              focus_area_id: localAddressedKey,
+              focus_area_type: 'weakness',
+              addressed_at: new Date().toISOString(),
+            })
+          }
+
+          const nextAddressed = new Set(readLocalFocusAreaProgress(getWeekStart()))
+          nextAddressed.add(localAddressedKey)
+          writeLocalFocusAreaProgress(getWeekStart(), nextAddressed)
+
+          window.dispatchEvent(new CustomEvent('focus-areas-updated'))
+          window.dispatchEvent(new CustomEvent('weaknesses-updated'))
+
+          const subjectForReflection = subjects.find(s => s.id === subjectId)
+          setFocusSessionWeakness({
+            weakness: currentWeakness as WeaknessTag,
+            subjectName: subjectForReflection?.name ?? '',
+          })
+          setSaving(false)
+          return // Wait for reflection to complete before marking saved
+        }
+      } catch {
+        // If weakness addressing fails, fall through to normal save
+      }
+    }
+
+    if (initialPriority && !priorityCompleted && !priorityPromptDismissed) {
+      setPriorityDialogOpen(true)
+    }
+
     setSaving(false)
     setSaved(true)
+  }
+
+  function handleFocusReflectionComplete() {
+    setFocusSessionWeakness(null)
+    if (initialPriority && !priorityCompleted && !priorityPromptDismissed) {
+      setPriorityDialogOpen(true)
+    }
+    setSaved(true)
+    window.dispatchEvent(new CustomEvent('focus-areas-updated'))
+    window.dispatchEvent(new CustomEvent('weaknesses-updated'))
+  }
+
+  async function handlePriorityComplete(reflection: { rating: number | null; notes: string }) {
+    if (!initialPriority) {
+      return
+    }
+
+    setPrioritySubmitting(true)
+
+    try {
+      const patch = {
+        is_completed: true,
+        completed_at: new Date().toISOString(),
+        reflection_rating: reflection.rating,
+        reflection_notes: reflection.notes || null,
+      }
+
+      if (isElectronRuntime()) {
+        const userId = await getDesktopUserId()
+        if (!userId) {
+          throw new Error('No local user session found.')
+        }
+
+        await invokeDesktopDb('updateTableRecords', [
+          'weekly_priorities',
+          userId,
+          { id: initialPriority.id },
+          patch,
+        ])
+
+        if (initialPriority.task_id) {
+          await invokeDesktopDb('updateTask', [
+            initialPriority.task_id,
+            userId,
+            {
+              is_completed: true,
+              completed_at: patch.completed_at,
+            },
+          ])
+        }
+      } else {
+        const supabase = createClient()
+        const { error } = await supabase
+          .from('weekly_priorities')
+          .update({
+            ...patch,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', initialPriority.id)
+
+        if (error) {
+          throw error
+        }
+
+        if (initialPriority.task_id) {
+          const { error: taskError } = await supabase
+            .from('tasks')
+            .update({
+              is_completed: true,
+              completed_at: patch.completed_at,
+            })
+            .eq('id', initialPriority.task_id)
+
+          if (taskError) {
+            throw taskError
+          }
+        }
+      }
+
+      setPriorityCompleted(true)
+      setPriorityDialogOpen(false)
+      window.dispatchEvent(new CustomEvent('weekly-priorities-updated'))
+    } finally {
+      setPrioritySubmitting(false)
+    }
+  }
+
+  function handlePrioritySkip() {
+    setPriorityPromptDismissed(true)
+    setPriorityDialogOpen(false)
   }
 
   const handleDiscard = () => {
@@ -269,6 +572,9 @@ export function FocusSession({
   }
 
   const resetForNewSession = () => {
+    sessionStartedAtMsRef.current = null
+    pauseStartedAtMsRef.current = null
+    pausedDurationMsRef.current = 0
     setPhase('setup')
     setSaved(false)
     setDiscarded(false)
@@ -276,6 +582,9 @@ export function FocusSession({
     setRating(null)
     setSummaryNotes('')
     setIsRunning(false)
+    setPriorityPromptDismissed(false)
+    setPriorityDialogOpen(false)
+    setPrioritySubmitting(false)
   }
 
   const filteredTasks = subjectId ? tasks.filter((task) => task.subject_id === subjectId) : tasks
@@ -283,6 +592,7 @@ export function FocusSession({
 
   const selectedSubject = subjects.find((subject) => subject.id === subjectId)
   const selectedTask = tasks.find((task) => task.id === taskId)
+  const priorityDurationMinutes = initialPriority ? calculateScheduledDurationMinutes(initialPriority) : null
   const selectedSubjectDotColor = selectedSubject
     ? SUBJECT_DOT_COLORS[selectedSubject.color] || '#64748b'
     : '#64748b'
@@ -320,9 +630,12 @@ export function FocusSession({
         subjectColor: overlaySubjectColor,
         objective: overlayObjective,
         timeText: formatTime(displaySeconds),
+        displaySeconds,
+        goalSeconds: isCountdown ? goalSeconds : null,
         mode: isCountdown ? 'remaining' : 'elapsed',
         paused: !isRunning,
         progressPercent: isCountdown ? progress : null,
+        syncedAtMs: Date.now(),
       })
       .catch(() => {})
   }
@@ -340,9 +653,12 @@ export function FocusSession({
           subjectColor: overlaySubjectColor,
           objective: overlayObjective,
           timeText: formatTime(displaySeconds),
+          displaySeconds,
+          goalSeconds: isCountdown ? goalSeconds : null,
           mode: isCountdown ? 'remaining' : 'elapsed',
           paused: !isRunning,
           progressPercent: isCountdown ? progress : null,
+          syncedAtMs: Date.now(),
         })
         .catch(() => {})
       return
@@ -354,7 +670,7 @@ export function FocusSession({
 
     overlayOpenedRef.current = false
     void window.electronAPI.app.closeFocusTimer?.().catch(() => {})
-  }, [displaySeconds, isCountdown, isRunning, overlayObjective, overlaySubject, overlaySubjectColor, phase, progress])
+  }, [displaySeconds, goalSeconds, isCountdown, isRunning, overlayObjective, overlaySubject, overlaySubjectColor, phase, progress])
 
   useEffect(() => {
     if (!isElectronRuntime() || !window.electronAPI?.app || phase !== 'active') {
@@ -367,12 +683,15 @@ export function FocusSession({
         subjectColor: overlaySubjectColor,
         objective: overlayObjective,
         timeText: formatTime(displaySeconds),
+        displaySeconds,
+        goalSeconds: isCountdown ? goalSeconds : null,
         mode: isCountdown ? 'remaining' : 'elapsed',
         paused: !isRunning,
         progressPercent: isCountdown ? progress : null,
+        syncedAtMs: Date.now(),
       })
       .catch(() => {})
-  }, [displaySeconds, isCountdown, isRunning, overlayObjective, overlaySubject, overlaySubjectColor, phase, progress])
+  }, [displaySeconds, goalSeconds, isCountdown, isRunning, overlayObjective, overlaySubject, overlaySubjectColor, phase, progress])
 
   useEffect(() => {
     return () => {
@@ -397,6 +716,16 @@ export function FocusSession({
               <p className="text-xs text-[var(--muted-fg)]">Set up your focus session</p>
             </div>
           </div>
+
+          {initialPriority ? (
+            <div className="glass-card p-4 space-y-1.5">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-[var(--muted-fg)]">Weekly Priority</p>
+              <p className="text-sm font-semibold text-[var(--card-fg)]">{initialPriority.title}</p>
+              {priorityDurationMinutes ? (
+                <p className="text-xs text-[var(--muted-fg)]">Scheduled: {priorityDurationMinutes} minutes</p>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="glass-card p-5 space-y-4">
             <div className="space-y-1.5">
@@ -545,6 +874,16 @@ export function FocusSession({
               </Link>
             </div>
           </div>
+
+          {initialPriority ? (
+            <PriorityCompletionDialog
+              open={priorityDialogOpen}
+              priorityTitle={initialPriority.title}
+              submitting={prioritySubmitting}
+              onSkip={handlePrioritySkip}
+              onComplete={handlePriorityComplete}
+            />
+          ) : null}
         </div>
       )
     }
@@ -650,6 +989,17 @@ export function FocusSession({
             </Button>
           </div>
         </div>
+
+        {/* Weakness reflection — appears after saving when session was linked to a weakness */}
+        {focusSessionWeakness && (
+          <WeaknessReflectionDialog
+            open={!!focusSessionWeakness}
+            onOpenChange={o => { if (!o) handleFocusReflectionComplete() }}
+            weakness={focusSessionWeakness.weakness}
+            subjectName={focusSessionWeakness.subjectName}
+            onComplete={handleFocusReflectionComplete}
+          />
+        )}
       </div>
     )
   }

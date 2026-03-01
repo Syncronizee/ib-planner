@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Subject } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { SubjectCard } from '@/components/subjects/subject-card'
@@ -20,7 +20,25 @@ export function SubjectsSection({ initialSubjects }: SubjectsSectionProps) {
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null)
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
+  const [modalInitialTab, setModalInitialTab] = useState<string>('grades')
+  const [modalHighlightWeaknessId, setModalHighlightWeaknessId] = useState<string | undefined>()
   const router = useRouter()
+
+  // Listen for requests from FocusAreas to open a subject's weaknesses tab
+  useEffect(() => {
+    const handler = (e: CustomEvent<{ subjectId: string; weaknessId?: string }>) => {
+      const { subjectId, weaknessId } = e.detail
+      const subject = subjects.find(s => s.id === subjectId)
+      if (subject) {
+        setSelectedSubject(subject)
+        setModalInitialTab('weaknesses')
+        setModalHighlightWeaknessId(weaknessId)
+        setDetailModalOpen(true)
+      }
+    }
+    window.addEventListener('open-subject-weakness', handler as EventListener)
+    return () => window.removeEventListener('open-subject-weakness', handler as EventListener)
+  }, [subjects])
 
   const handleSave = async (data: { name: string; level: 'HL' | 'SL'; confidence: number; color: string }) => {
     const supabase = createClient()
@@ -32,7 +50,7 @@ export function SubjectsSection({ initialSubjects }: SubjectsSectionProps) {
         .eq('id', editingSubject.id)
 
       if (!error) {
-        setSubjects(subjects.map(s => 
+        setSubjects(subjects.map(s =>
           s.id === editingSubject.id ? { ...s, ...data } : s
         ))
       }
@@ -49,7 +67,7 @@ export function SubjectsSection({ initialSubjects }: SubjectsSectionProps) {
         setSubjects([...subjects, newSubject])
       }
     }
-    
+
     setEditingSubject(null)
     router.refresh()
   }
@@ -79,12 +97,22 @@ export function SubjectsSection({ initialSubjects }: SubjectsSectionProps) {
 
   const handleSubjectClick = (subject: Subject) => {
     setSelectedSubject(subject)
+    setModalInitialTab('grades')
+    setModalHighlightWeaknessId(undefined)
     setDetailModalOpen(true)
   }
 
   const handleSubjectUpdate = (updatedSubject: Subject) => {
     setSubjects(subjects.map(s => s.id === updatedSubject.id ? updatedSubject : s))
     setSelectedSubject(updatedSubject)
+  }
+
+  const handleDetailModalOpenChange = (open: boolean) => {
+    setDetailModalOpen(open)
+    if (!open) {
+      setModalInitialTab('grades')
+      setModalHighlightWeaknessId(undefined)
+    }
   }
 
   return (
@@ -96,10 +124,10 @@ export function SubjectsSection({ initialSubjects }: SubjectsSectionProps) {
           </div>
           <h2 className="text-lg font-semibold text-[var(--card-fg)] uppercase tracking-wide">Subjects</h2>
         </div>
-        <Button 
-          onClick={handleAdd} 
-          disabled={subjects.length >= 6} 
-          size="sm" 
+        <Button
+          onClick={handleAdd}
+          disabled={subjects.length >= 6}
+          size="sm"
           className="btn-glass rounded-xl"
         >
           <Plus className="h-4 w-4 mr-1" />
@@ -140,9 +168,11 @@ export function SubjectsSection({ initialSubjects }: SubjectsSectionProps) {
       {selectedSubject && (
         <SubjectDetailModal
           open={detailModalOpen}
-          onOpenChange={setDetailModalOpen}
+          onOpenChange={handleDetailModalOpenChange}
           subject={selectedSubject}
           onSubjectUpdate={handleSubjectUpdate}
+          initialTab={modalInitialTab}
+          highlightWeaknessId={modalHighlightWeaknessId}
         />
       )}
     </div>

@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { SyncTable } from '../database/local-database'
+import { normalizeFocusAreaProgressType } from '../focus-area-progress'
 import type { StoredAuthSession } from '../shared-types'
 
 type RemoteRecord = Record<string, unknown>
@@ -64,6 +65,10 @@ function sanitizeRow(row: RemoteRecord) {
     payload[key] = value
   }
 
+  if (Object.prototype.hasOwnProperty.call(payload, 'focus_area_type')) {
+    payload.focus_area_type = normalizeFocusAreaProgressType(payload.focus_area_type, payload.focus_area_id)
+  }
+
   return payload
 }
 
@@ -95,6 +100,40 @@ function isTableMissingError(error: unknown) {
 
   const message = typeof candidate.message === 'string' ? candidate.message : ''
   return message.includes('PGRST205') || message.includes('Could not find the table')
+}
+
+function isConstraintViolation(error: unknown, constraintName: string) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const candidate = error as Record<string, unknown>
+  const code = typeof candidate.code === 'string' ? candidate.code : ''
+  const message = typeof candidate.message === 'string' ? candidate.message : ''
+
+  if (code !== '23514') {
+    return false
+  }
+
+  return message.includes(constraintName)
+}
+
+function getFocusAreaTypeFallbacks(value: unknown) {
+  const current = typeof value === 'string' ? value.trim().toLowerCase() : ''
+
+  if (current === 'weakness') {
+    return ['confidence', 'practice']
+  }
+
+  if (current === 'confidence') {
+    return ['practice']
+  }
+
+  if (current === 'practice') {
+    return ['confidence']
+  }
+
+  return ['confidence', 'practice']
 }
 
 function extractMissingColumnFromError(error: unknown, tableName: string) {
@@ -182,6 +221,10 @@ export class RemoteSyncDatabase {
     return this.withTableResolution(table, async (remoteTable) => {
       const payload = sanitizeRow(row)
       const removedColumns = new Set<string>()
+      const focusAreaTypeFallbacks = Object.prototype.hasOwnProperty.call(payload, 'focus_area_type')
+        ? getFocusAreaTypeFallbacks(payload.focus_area_type)
+        : []
+      let focusAreaTypeFallbackIndex = 0
 
       for (let attempt = 0; attempt < 10; attempt += 1) {
         const { data, error } = await client
@@ -202,6 +245,15 @@ export class RemoteSyncDatabase {
         ) {
           delete payload[missingColumn]
           removedColumns.add(missingColumn)
+          continue
+        }
+
+        if (
+          isConstraintViolation(error, 'focus_area_progress_focus_area_type_check') &&
+          focusAreaTypeFallbackIndex < focusAreaTypeFallbacks.length
+        ) {
+          payload.focus_area_type = focusAreaTypeFallbacks[focusAreaTypeFallbackIndex]
+          focusAreaTypeFallbackIndex += 1
           continue
         }
 

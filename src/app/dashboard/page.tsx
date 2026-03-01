@@ -7,11 +7,12 @@ import { TasksSection } from './tasks-section'
 import { CalendarPreview } from './calendar-preview'
 import { TimetableSection } from './timetable-section'
 import { EnergyCheckinWrapper } from '@/components/energy/energy-checkin-wrapper'
-import { WeeklyPlanWidget } from '@/components/planning/weekly-plan-widget'
-import { WeaknessIndicator } from '@/components/dashboard/weakness-indicator'
+import { WeeklyPlanWidget } from '@/components/dashboard/weekly-plan-widget'
 import { DashboardOverviewCard } from '@/components/dashboard/dashboard-overview-card'
-import { ProactiveScore } from '@/components/dashboard/proactive-score'
 import { StudySessionsWidget } from '@/components/dashboard/study-sessions-widget'
+import { FocusAreas } from '@/components/dashboard/focus-areas'
+import { PracticeTracker } from '@/components/dashboard/practice-tracker'
+
 import { SessionLoggerFab } from '@/components/study/session-logger-fab'
 import { GraduationCap, Target, TrendingUp, CheckSquare } from 'lucide-react'
 import { formatDotoNumber } from '@/lib/utils'
@@ -41,10 +42,13 @@ export default async function DashboardPage() {
     { data: tasks },
     { data: assessments },
     { data: timetableEntries },
-    { data: weeklyPlans },
+    { data: weeklyPriorities },
     { data: studySessions },
     { data: scheduledSessions },
     { data: schoolEvents },
+    { data: weaknesses },
+    { data: syllabusTopics },
+    { data: energyCheckins },
   ] = await Promise.all([
     supabase
       .from('subjects')
@@ -67,12 +71,11 @@ export default async function DashboardPage() {
       .eq('user_id', user.id)
       .order('start_time', { ascending: true }),
     supabase
-      .from('weekly_plans')
+      .from('weekly_priorities')
       .select('*')
       .eq('user_id', user.id)
-      .eq('week_start_date', format(weekStart, 'yyyy-MM-dd'))
-      .order('created_at', { ascending: false })
-      .limit(1),
+      .eq('week_start', format(weekStart, 'yyyy-MM-dd'))
+      .order('priority_number', { ascending: true }),
     supabase
       .from('study_sessions')
       .select('*')
@@ -88,6 +91,22 @@ export default async function DashboardPage() {
       .select('*')
       .eq('user_id', user.id)
       .order('event_date', { ascending: true }),
+    supabase
+      .from('weakness_tags')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('syllabus_topics')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('energy_checkins')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('timestamp', { ascending: false })
+      .limit(1),
   ])
 
   // Calculate stats
@@ -98,8 +117,6 @@ export default async function DashboardPage() {
     : null
   const totalPoints = subjectsWithGrades.reduce((sum, s) => sum + (s.current_grade || 0), 0)
   const pendingTasks = tasks?.filter(t => !t.is_completed).length || 0
-
-  const currentWeekPlan = weeklyPlans?.[0] || null
 
   return (
     <div className="min-h-screen app-bg">
@@ -160,21 +177,31 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Weekly Plan + Weakness Indicator + Proactive Score Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Weekly Plan + Focus Areas Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="glass-card hover-lift overflow-hidden">
             <WeeklyPlanWidget
-              plan={currentWeekPlan}
-              tasks={tasks || []}
+              priorities={weeklyPriorities || []}
               subjects={subjects || []}
             />
           </div>
           <div className="glass-card hover-lift overflow-hidden">
-            <WeaknessIndicator subjects={subjects || []} tasks={tasks || []} />
+            <FocusAreas
+              subjects={subjects || []}
+              assessments={assessments || []}
+              tasks={tasks || []}
+              weaknesses={weaknesses || []}
+              energyCheckins={energyCheckins || []}
+            />
           </div>
-          <div className="glass-card hover-lift overflow-hidden">
-            <ProactiveScore tasks={tasks || []} subjects={subjects || []} />
-          </div>
+        </div>
+
+        {/* Practice Tracker */}
+        <div className="glass-card hover-lift overflow-hidden">
+          <PracticeTracker
+            subjects={subjects || []}
+            syllabusTopics={syllabusTopics || []}
+          />
         </div>
 
         {/* Study Sessions Widget */}

@@ -44,6 +44,8 @@ let syncManager: SyncManager | null = null
 let tokenStore: TokenStore | null = null
 let mainWindow: BrowserWindow | null = null
 let focusTimerWindow: BrowserWindow | null = null
+let forceClosingFocusTimerWindow = false
+let isQuittingApp = false
 let manualOfflineMode = false
 let requestBlockerInstalled = false
 let networkWatchTimer: NodeJS.Timeout | null = null
@@ -76,9 +78,12 @@ type FocusTimerOverlayPayload = {
   subjectColor: string | null
   objective: string
   timeText: string
+  displaySeconds: number
+  goalSeconds: number | null
   mode: 'remaining' | 'elapsed'
   paused: boolean
   progressPercent: number | null
+  syncedAtMs: number
 }
 
 function formatError(error: unknown) {
@@ -464,6 +469,71 @@ function buildFocusTimerHtml(payload: FocusTimerOverlayPayload) {
     </div>
   </div>
   <script>
+    const TIMER_CIRCUMFERENCE = ${JSON.stringify(circumference)}
+    function formatTime(totalSeconds) {
+      const safeSeconds = Math.max(0, Math.floor(totalSeconds))
+      const h = Math.floor(safeSeconds / 3600)
+      const m = Math.floor((safeSeconds % 3600) / 60)
+      const s = safeSeconds % 60
+      if (h > 0) {
+        return h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0')
+      }
+      return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0')
+    }
+    function getTimerState() {
+      if (!window.__FOCUS_TIMER_STATE__) {
+        window.__FOCUS_TIMER_STATE__ = {
+          displaySeconds: ${JSON.stringify(payload.displaySeconds)},
+          goalSeconds: ${JSON.stringify(payload.goalSeconds)},
+          mode: ${JSON.stringify(payload.mode)},
+          paused: ${JSON.stringify(payload.paused)},
+          subject: ${JSON.stringify(subject)},
+          subjectColor: ${JSON.stringify(subjectColor)},
+          objective: ${JSON.stringify(objective)},
+          syncedAtMs: ${JSON.stringify(payload.syncedAtMs)},
+        }
+      }
+      return window.__FOCUS_TIMER_STATE__
+    }
+    function renderTimer() {
+      const state = getTimerState()
+      const timer = document.getElementById('timer')
+      const status = document.getElementById('status')
+      const subject = document.getElementById('subject')
+      const objective = document.getElementById('objective')
+      const subjectDot = document.getElementById('subjectDot')
+      const ringProgress = document.getElementById('ringProgress')
+      const circleWrap = document.getElementById('circleWrap')
+      const modeLabel = state.mode === 'remaining' ? 'Remaining' : 'Elapsed'
+      const elapsedSeconds = state.paused ? 0 : Math.max(0, Math.floor((Date.now() - state.syncedAtMs) / 1000))
+      const displaySeconds = state.mode === 'remaining'
+        ? Math.max(0, state.displaySeconds - elapsedSeconds)
+        : state.displaySeconds + elapsedSeconds
+      const hasCountdown = state.mode === 'remaining' && typeof state.goalSeconds === 'number' && state.goalSeconds > 0
+      const progress = hasCountdown
+        ? Math.max(0, Math.min(1, 1 - (displaySeconds / state.goalSeconds)))
+        : 0
+      const dashOffset = hasCountdown ? TIMER_CIRCUMFERENCE * (1 - progress) : TIMER_CIRCUMFERENCE
+
+      if (timer) timer.textContent = formatTime(displaySeconds)
+      if (status) status.textContent = state.paused ? modeLabel + ' • Paused' : modeLabel
+      if (subject) subject.textContent = state.subject
+      if (objective) objective.textContent = state.objective
+      if (subjectDot) subjectDot.style.background = state.subjectColor
+      if (ringProgress) {
+        ringProgress.setAttribute('stroke-dasharray', String(TIMER_CIRCUMFERENCE))
+        ringProgress.setAttribute('stroke-dashoffset', String(dashOffset))
+        ringProgress.style.opacity = hasCountdown ? '1' : '0.22'
+      }
+      if (circleWrap) {
+        circleWrap.style.opacity = hasCountdown ? '1' : '0.8'
+      }
+    }
+    window.__renderFocusTimer = renderTimer
+    renderTimer()
+    if (!window.__FOCUS_TIMER_INTERVAL__) {
+      window.__FOCUS_TIMER_INTERVAL__ = window.setInterval(renderTimer, 250)
+    }
     const closeBtn = document.getElementById('closeBtn')
     if (closeBtn) {
       closeBtn.addEventListener('click', () => window.close())
@@ -527,6 +597,19 @@ async function openFocusTimerWindow(payload: FocusTimerOverlayPayload) {
   window.setAlwaysOnTop(true, 'screen-saver')
   window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
+  if (process.platform === 'darwin') {
+    app.dock?.show()
+  }
+
+  window.on('close', (event) => {
+    if (forceClosingFocusTimerWindow || isQuittingApp) {
+      return
+    }
+
+    event.preventDefault()
+    window.hide()
+  })
+
   window.on('closed', () => {
     if (focusTimerWindow === window) {
       focusTimerWindow = null
@@ -556,33 +639,18 @@ async function updateFocusTimerWindow(payload: FocusTimerOverlayPayload) {
   const objective = payload.objective.trim() || 'No objective set'
   const subject = payload.subject.trim() || 'General'
   const subjectColor = payload.subjectColor?.trim() || '#64748b'
-  const modeLabel = payload.mode === 'remaining' ? 'Remaining' : 'Elapsed'
-  const statusText = payload.paused ? `${modeLabel} • Paused` : modeLabel
-  const circumference = 2 * Math.PI * 29
-  const hasCountdown = payload.mode === 'remaining' && typeof payload.progressPercent === 'number'
-  const safeProgress = hasCountdown ? Math.max(0, Math.min(1, payload.progressPercent ?? 0)) : 0
-  const dashOffset = hasCountdown ? circumference * (1 - safeProgress) : circumference
   const script = `(() => {
-    const timer = document.getElementById('timer')
-    const status = document.getElementById('status')
-    const subject = document.getElementById('subject')
-    const objective = document.getElementById('objective')
-    const subjectDot = document.getElementById('subjectDot')
-    const ringProgress = document.getElementById('ringProgress')
-    const circleWrap = document.getElementById('circleWrap')
-    if (timer) timer.textContent = ${JSON.stringify(payload.timeText)}
-    if (status) status.textContent = ${JSON.stringify(statusText)}
-    if (subject) subject.textContent = ${JSON.stringify(subject)}
-    if (objective) objective.textContent = ${JSON.stringify(objective)}
-    if (subjectDot) subjectDot.style.background = ${JSON.stringify(subjectColor)}
-    if (ringProgress) {
-      ringProgress.setAttribute('stroke-dasharray', ${JSON.stringify(String(circumference))})
-      ringProgress.setAttribute('stroke-dashoffset', ${JSON.stringify(String(dashOffset))})
-      ringProgress.style.opacity = ${hasCountdown ? JSON.stringify('1') : JSON.stringify('0.22')}
+    window.__FOCUS_TIMER_STATE__ = {
+      displaySeconds: ${JSON.stringify(payload.displaySeconds)},
+      goalSeconds: ${JSON.stringify(payload.goalSeconds)},
+      mode: ${JSON.stringify(payload.mode)},
+      paused: ${JSON.stringify(payload.paused)},
+      subject: ${JSON.stringify(subject)},
+      subjectColor: ${JSON.stringify(subjectColor)},
+      objective: ${JSON.stringify(objective)},
+      syncedAtMs: ${JSON.stringify(payload.syncedAtMs)},
     }
-    if (circleWrap) {
-      circleWrap.style.opacity = ${hasCountdown ? JSON.stringify('1') : JSON.stringify('0.8')}
-    }
+    if (window.__renderFocusTimer) window.__renderFocusTimer()
   })();`
 
   try {
@@ -601,8 +669,10 @@ function closeFocusTimerWindow() {
     return
   }
 
+  forceClosingFocusTimerWindow = true
   focusTimerWindow.close()
   focusTimerWindow = null
+  forceClosingFocusTimerWindow = false
 }
 
 function resolveStaticIndexPath() {
@@ -782,7 +852,20 @@ async function createMainWindow() {
   mainWindow = window
 
   window.once('ready-to-show', () => {
+    if (process.platform === 'darwin') {
+      app.dock?.show()
+    }
     window.show()
+  })
+
+  window.on('close', (event) => {
+    if (!isQuittingApp && focusTimerWindow && !focusTimerWindow.isDestroyed()) {
+      event.preventDefault()
+      if (process.platform === 'darwin') {
+        app.dock?.show()
+      }
+      window.hide()
+    }
   })
 
   window.on('closed', () => {
@@ -1138,6 +1221,17 @@ app.whenReady().then(async () => {
   writeStartupLog('Electron app boot sequence completed')
 
   app.on('activate', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (process.platform === 'darwin') {
+        app.dock?.show()
+      }
+      if (!mainWindow.isVisible()) {
+        mainWindow.show()
+      }
+      mainWindow.focus()
+      return
+    }
+
     if (BrowserWindow.getAllWindows().length === 0) {
       void createMainWindow()
     }
@@ -1148,12 +1242,13 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  if (process.platform !== 'darwin' && !focusTimerWindow) {
     app.quit()
   }
 })
 
 app.on('before-quit', () => {
+  isQuittingApp = true
   closeFocusTimerWindow()
 
   if (nextServerProcess && !nextServerProcess.killed) {

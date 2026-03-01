@@ -7,6 +7,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -89,6 +96,21 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
     return () => clearTimeout(timer)
   }, [toastMessage])
 
+  useEffect(() => {
+    const openAddTaskDialog = () => setAdding(true)
+
+    window.addEventListener('open-task-dialog', openAddTaskDialog)
+    return () => window.removeEventListener('open-task-dialog', openAddTaskDialog)
+  }, [])
+
+  const resetAddTaskForm = () => {
+    setTitle('')
+    setDueDate(undefined)
+    setPriority('medium')
+    setSubjectId('')
+    setCategory('homework')
+  }
+
   const applyTaskUpdate = (updater: (prev: Task[]) => Task[]) => {
     shouldEmitTasksUpdatedRef.current = true
     setTasks((prev) => updater(prev))
@@ -121,11 +143,7 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
         ])
 
         applyTaskUpdate((prev) => [...prev, localTask])
-        setTitle('')
-        setDueDate(undefined)
-        setPriority('medium')
-        setSubjectId('')
-        setCategory('homework')
+        resetAddTaskForm()
         setAdding(false)
         return
       }
@@ -153,11 +171,7 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
 
       if (!error && data) {
         applyTaskUpdate((prev) => [...prev, data])
-        setTitle('')
-        setDueDate(undefined)
-        setPriority('medium')
-        setSubjectId('')
-        setCategory('homework')
+        resetAddTaskForm()
         setAdding(false)
         router.refresh()
       } else if (error) {
@@ -381,81 +395,97 @@ export function TasksSection({ initialTasks, subjects }: TasksSectionProps) {
         })}
       </div>
 
-      {/* Add Task Form */}
-      {adding && (
-        <div className="space-y-3 p-4 mb-4 rounded-xl bg-[var(--muted)]/40 border border-[var(--border)]">
-          <Input
-            placeholder="Task title..."
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="h-10 bg-[var(--card)] border-[var(--border)] text-[var(--card-fg)] placeholder:text-[var(--muted-fg)]"
-          />
-          
-          <div className="grid grid-cols-2 gap-2">
-            <Select value={category} onValueChange={(v: Task['category']) => setCategory(v)}>
-              <SelectTrigger className="h-10 text-xs bg-[var(--card)] border-[var(--border)] text-[var(--card-fg)]">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                {TASK_CATEGORIES.map(c => (
-                  <SelectItem key={c.value} value={c.value}>
-                    <div className="flex items-center gap-2">
-                      {getCategoryIcon(c.value as Task['category'])}
-                      {c.label}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <Dialog
+        open={adding}
+        onOpenChange={(open) => {
+          setAdding(open)
+          if (!open) {
+            resetAddTaskForm()
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Task</DialogTitle>
+            <DialogDescription className="sr-only">
+              Create a new task from the dashboard.
+            </DialogDescription>
+          </DialogHeader>
 
-            <Select value={subjectId || 'none'} onValueChange={(v) => setSubjectId(v === 'none' ? '' : v)}>
-              <SelectTrigger className="h-10 text-xs bg-[var(--card)] border-[var(--border)] text-[var(--card-fg)]">
-                <SelectValue placeholder="Subject" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No subject</SelectItem>
-                {subjects.map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="space-y-3">
+            <Input
+              placeholder="Task title..."
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="h-10 bg-[var(--card)] border-[var(--border)] text-[var(--card-fg)] placeholder:text-[var(--muted-fg)]"
+            />
+
+            <div className="grid grid-cols-2 gap-2">
+              <Select value={category} onValueChange={(v: Task['category']) => setCategory(v)}>
+                <SelectTrigger className="h-10 text-xs bg-[var(--card)] border-[var(--border)] text-[var(--card-fg)]">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TASK_CATEGORIES.map(c => (
+                    <SelectItem key={c.value} value={c.value}>
+                      <div className="flex items-center gap-2">
+                        {getCategoryIcon(c.value as Task['category'])}
+                        {c.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={subjectId || 'none'} onValueChange={(v) => setSubjectId(v === 'none' ? '' : v)}>
+                <SelectTrigger className="h-10 text-xs bg-[var(--card)] border-[var(--border)] text-[var(--card-fg)]">
+                  <SelectValue placeholder="Subject" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No subject</SelectItem>
+                  {subjects.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="h-10 justify-start text-xs bg-[var(--card)] border-[var(--border)] text-[var(--card-fg)] hover:bg-[var(--muted)]">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dueDate ? format(dueDate, 'MMM d') : 'Due date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={dueDate} onSelect={setDueDate} />
+                </PopoverContent>
+              </Popover>
+
+              <Select value={priority} onValueChange={(v: Task['priority']) => setPriority(v)}>
+                <SelectTrigger className="h-10 text-xs bg-[var(--card)] border-[var(--border)] text-[var(--card-fg)]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low Priority</SelectItem>
+                  <SelectItem value="medium">Medium Priority</SelectItem>
+                  <SelectItem value="high">High Priority</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleAdd} disabled={!title.trim() || savingTask} className="btn-glass rounded-xl">
+                {savingTask ? 'Saving...' : 'Save'}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setAdding(false)} className="bg-[var(--muted)] border-[var(--border)] text-[var(--card-fg)] hover:bg-[var(--card)] rounded-xl">
+                Cancel
+              </Button>
+            </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="h-10 justify-start text-xs bg-[var(--card)] border-[var(--border)] text-[var(--card-fg)] hover:bg-[var(--muted)]">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dueDate ? format(dueDate, 'MMM d') : 'Due date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={dueDate} onSelect={setDueDate} />
-              </PopoverContent>
-            </Popover>
-
-            <Select value={priority} onValueChange={(v: Task['priority']) => setPriority(v)}>
-              <SelectTrigger className="h-10 text-xs bg-[var(--card)] border-[var(--border)] text-[var(--card-fg)]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Low Priority</SelectItem>
-                <SelectItem value="medium">Medium Priority</SelectItem>
-                <SelectItem value="high">High Priority</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex gap-2">
-            <Button size="sm" onClick={handleAdd} disabled={!title.trim() || savingTask} className="btn-glass rounded-xl">
-              {savingTask ? 'Saving...' : 'Save'}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setAdding(false)} className="bg-[var(--muted)] border-[var(--border)] text-[var(--card-fg)] hover:bg-[var(--card)] rounded-xl">
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* Tasks List */}
       {filteredTasks.length === 0 ? (

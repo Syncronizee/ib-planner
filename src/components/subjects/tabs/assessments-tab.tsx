@@ -38,6 +38,10 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { useRouter } from 'next/navigation'
+import {
+  formatAssessmentPercentage,
+  getAssessmentAveragePercentage,
+} from '@/lib/assessment-grades'
 
 interface AssessmentsTabProps {
   subject: Subject
@@ -292,9 +296,7 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
   const incompleteAssessments = assessments.filter(a => !a.is_completed)
   const totalAssessments = assessments.length
   const assessmentsWithPercentage = completedAssessments.filter(a => a.percentage !== null)
-  const averagePercentage = assessmentsWithPercentage.length > 0
-    ? Math.round(assessmentsWithPercentage.reduce((sum, a) => sum + (a.percentage || 0), 0) / assessmentsWithPercentage.length)
-    : null
+  const averagePercentage = getAssessmentAveragePercentage(assessments)
   const highestScore = assessmentsWithPercentage.length > 0
     ? Math.max(...assessmentsWithPercentage.map(a => a.percentage || 0))
     : null
@@ -329,7 +331,7 @@ export function AssessmentsTab({ subject, assessments, onAssessmentsChange }: As
             <CardContent className="p-2">
               <p className="text-sm text-muted-foreground">Average</p>
               <p className={`text-lg font-bold ${averagePercentage ? getScoreColor(averagePercentage) : ''}`}>
-                {averagePercentage !== null ? `${averagePercentage}%` : '-'}
+                {formatAssessmentPercentage(averagePercentage)}
               </p>
             </CardContent>
           </Card>

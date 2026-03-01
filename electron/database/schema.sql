@@ -142,6 +142,12 @@ CREATE TABLE IF NOT EXISTS syllabus_topics (
   is_completed INTEGER NOT NULL DEFAULT 0,
   confidence INTEGER NOT NULL DEFAULT 3,
   notes TEXT,
+  practice_count INTEGER NOT NULL DEFAULT 0,
+  last_practiced_at TEXT,
+  practice_status TEXT NOT NULL DEFAULT 'not_tracking' CHECK (practice_status IN ('not_tracking', 'tracking', 'on_track', 'mastered')),
+  mastered_at TEXT,
+  difficulty INTEGER CHECK (difficulty BETWEEN 1 AND 5 OR difficulty IS NULL),
+  reminder_enabled INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   synced_at TEXT,
@@ -158,6 +164,10 @@ CREATE TABLE IF NOT EXISTS weakness_tags (
   description TEXT,
   weakness_type TEXT NOT NULL CHECK (weakness_type IN ('content', 'logic')),
   is_resolved INTEGER NOT NULL DEFAULT 0,
+  last_addressed_at TEXT,
+  address_count INTEGER NOT NULL DEFAULT 0,
+  reflection_notes TEXT,
+  improvement_rating INTEGER CHECK (improvement_rating BETWEEN 1 AND 4 OR improvement_rating IS NULL),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   synced_at TEXT,
@@ -249,12 +259,38 @@ CREATE TABLE IF NOT EXISTS weekly_plans (
   deleted_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS weekly_priorities (
+  id TEXT PRIMARY KEY,
+  remote_id TEXT UNIQUE,
+  user_id TEXT NOT NULL,
+  week_start TEXT NOT NULL,
+  priority_number INTEGER NOT NULL CHECK (priority_number BETWEEN 1 AND 3),
+  title TEXT NOT NULL,
+  task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+  task_category TEXT NOT NULL DEFAULT 'project',
+  subject_id TEXT REFERENCES subjects(id) ON DELETE SET NULL,
+  scheduled_day INTEGER CHECK (scheduled_day BETWEEN 0 AND 6 OR scheduled_day IS NULL),
+  scheduled_start_time TEXT,
+  scheduled_end_time TEXT,
+  is_completed INTEGER NOT NULL DEFAULT 0,
+  completed_at TEXT,
+  reflection_rating INTEGER CHECK (reflection_rating BETWEEN 1 AND 4 OR reflection_rating IS NULL),
+  reflection_notes TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  synced_at TEXT,
+  is_dirty INTEGER NOT NULL DEFAULT 1,
+  deleted_at TEXT,
+  UNIQUE(user_id, week_start, priority_number)
+);
+
 CREATE TABLE IF NOT EXISTS study_sessions (
   id TEXT PRIMARY KEY,
   remote_id TEXT UNIQUE,
   user_id TEXT NOT NULL,
   subject_id TEXT REFERENCES subjects(id) ON DELETE SET NULL,
   task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+  weakness_tag_id TEXT REFERENCES weakness_tags(id) ON DELETE SET NULL,
   objective TEXT,
   duration_minutes INTEGER NOT NULL,
   duration_goal_minutes INTEGER,
@@ -265,6 +301,21 @@ CREATE TABLE IF NOT EXISTS study_sessions (
   session_status TEXT CHECK (session_status IN ('completed', 'abandoned') OR session_status IS NULL),
   notes TEXT,
   started_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  synced_at TEXT,
+  is_dirty INTEGER NOT NULL DEFAULT 1,
+  deleted_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS focus_area_progress (
+  id TEXT PRIMARY KEY,
+  remote_id TEXT UNIQUE,
+  user_id TEXT NOT NULL,
+  week_start TEXT NOT NULL,
+  focus_area_id TEXT NOT NULL,
+  focus_area_type TEXT NOT NULL,
+  addressed_at TEXT,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   synced_at TEXT,
@@ -466,6 +517,7 @@ CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id);
 CREATE INDEX IF NOT EXISTS idx_note_images_user_id ON note_images(user_id);
 CREATE INDEX IF NOT EXISTS idx_energy_checkins_user_ts ON energy_checkins(user_id, timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_weekly_plans_user_week ON weekly_plans(user_id, week_start_date DESC);
+CREATE INDEX IF NOT EXISTS idx_weekly_priorities_user_week ON weekly_priorities(user_id, week_start DESC);
 CREATE INDEX IF NOT EXISTS idx_study_sessions_user_started ON study_sessions(user_id, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_study_sessions_user_dirty ON study_sessions(user_id, is_dirty);
 CREATE INDEX IF NOT EXISTS idx_scheduled_study_sessions_user_for ON scheduled_study_sessions(user_id, scheduled_for);

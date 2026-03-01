@@ -11,9 +11,12 @@ type FocusTimerOverlayPayload = {
   subjectColor: string | null
   objective: string
   timeText: string
+  displaySeconds: number
+  goalSeconds: number | null
   mode: 'remaining' | 'elapsed'
   paused: boolean
   progressPercent: number | null
+  syncedAtMs: number
 }
 
 function subscribe<T>(channel: string, callback: GenericCallback<T>): Unsubscribe {

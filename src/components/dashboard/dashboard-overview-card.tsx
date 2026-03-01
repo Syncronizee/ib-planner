@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import Link from 'next/link'
 import { format } from 'date-fns'
 import { CalendarClock, Play, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -25,6 +24,10 @@ export function DashboardOverviewCard({
   const [setupMode, setSetupMode] = useState<'start' | 'schedule'>('start')
   const now = new Date()
   const today = format(now, 'yyyy-MM-dd')
+
+  const handleOpenTaskDialog = () => {
+    window.dispatchEvent(new CustomEvent('open-task-dialog'))
+  }
 
   const openTasks = useMemo(() => tasks.filter((task) => !task.is_completed), [tasks])
   const dueTodayCount = openTasks.filter((task) => task.due_date === today).length
@@ -72,10 +75,14 @@ export function DashboardOverviewCard({
             <CalendarClock className="h-4 w-4" />
             Schedule Study
           </Button>
-          <Link href="/dashboard" className="btn-glass rounded-2xl h-[4.5rem] px-2 text-xs sm:text-sm font-medium transition-smooth inline-flex flex-col justify-center items-center gap-1 leading-tight text-center">
+          <Button
+            type="button"
+            onClick={handleOpenTaskDialog}
+            className="btn-glass rounded-2xl h-[4.5rem] px-2 text-xs sm:text-sm font-medium transition-smooth inline-flex flex-col justify-center items-center gap-1 leading-tight text-center"
+          >
             <Plus className="h-4 w-4" />
             Add Task
-          </Link>
+          </Button>
         </div>
       </div>
 

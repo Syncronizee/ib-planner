@@ -74,6 +74,13 @@ export type SyllabusTopic = {
   confidence: number
   notes: string | null
   created_at: string
+  // Practice tracking fields
+  practice_count: number
+  last_practiced_at: string | null
+  practice_status: 'not_tracking' | 'tracking' | 'on_track' | 'mastered'
+  mastered_at: string | null
+  difficulty: number | null // 1-5
+  reminder_enabled: boolean
 }
 
 export type WeaknessTag = {
@@ -84,6 +91,10 @@ export type WeaknessTag = {
   description: string | null
   weakness_type: 'content' | 'logic'
   is_resolved: boolean
+  last_addressed_at: string | null
+  address_count: number
+  reflection_notes: string | null
+  improvement_rating: number | null // 1=Not really, 2=Somewhat, 3=Yes!, 4=Mastered it!
   created_at: string
 }
 
@@ -208,6 +219,27 @@ export type WeeklyPlan = {
   created_at: string
 }
 
+export type WeeklyPriority = {
+  id: string
+  user_id: string
+  week_start: string
+  priority_number: 1 | 2 | 3
+  title: string
+  task_id: string | null
+  task_category: TaskCategory
+  subject_id: string | null
+  subject?: Subject
+  scheduled_day: number | null
+  scheduled_start_time: string | null
+  scheduled_end_time: string | null
+  is_completed: boolean
+  completed_at: string | null
+  reflection_rating: number | null
+  reflection_notes: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type SessionStatus = 'completed' | 'abandoned'
 export type ProductivityRating = 'good' | 'okay' | 'poor'
 
@@ -222,6 +254,7 @@ export type StudySession = {
   user_id: string
   subject_id: string | null
   task_id: string | null
+  weakness_tag_id: string | null
   duration_minutes: number
   duration_goal_minutes: number | null
   actual_duration_minutes: number | null
@@ -502,3 +535,63 @@ export const TASK_CATEGORIES = [
 ] as const
 
 export type TaskCategory = 'homework' | 'assessment' | 'college_prep' | 'personal' | 'project' | 'revision' | 'other'
+
+// =============================================
+// Practice Topics & Focus Areas
+// =============================================
+
+export type PracticeTopic = {
+  id: string
+  user_id: string
+  subject_id: string
+  title: string
+  description: string | null
+  confidence: number // 1-5
+  practice_count: number
+  target_practice_count: number
+  last_practiced_at: string | null
+  common_errors: string | null
+  status: 'needs_practice' | 'on_track' | 'mastered'
+  created_at: string
+  updated_at: string
+}
+
+export type PracticeLog = {
+  id: string
+  user_id: string
+  topic_id: string | null
+  syllabus_topic_id: string | null
+  subject_id: string
+  duration_minutes: number | null
+  notes: string | null
+  practiced_at: string
+  created_at: string
+}
+
+export type FocusArea = {
+  id: string
+  title: string
+  subject: Subject
+  reason: string
+  urgency: 'high' | 'medium' | 'low'
+  source: 'weakness' | 'assessment' | 'confidence' | 'deadline'
+  action: {
+    label: string
+    type: 'practice' | 'study' | 'task'
+    weaknessId?: string
+    taskId?: string
+    assessmentId?: string
+  }
+  addressed: boolean
+  addressedAt?: string
+}
+
+export type FocusAreaProgress = {
+  id: string
+  user_id: string
+  week_start: string
+  focus_area_id: string
+  focus_area_type: string
+  addressed_at: string | null
+  created_at: string
+}

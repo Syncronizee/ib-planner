@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { StudySession, Subject, Task, ScheduledStudySession } from '@/lib/types'
 import { formatDotoNumber } from '@/lib/utils'
 import { BookOpen, CalendarClock, Clock, Play } from 'lucide-react'
-import { isThisWeek } from 'date-fns'
+import { isThisWeek, format } from 'date-fns'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -124,7 +124,7 @@ export function StudySessionsWidget({ sessions, subjects, tasks, scheduledSessio
                         {session.task_suggestion ? ` • ${session.task_suggestion}` : ''}
                       </p>
                       <p className="text-xs text-[var(--muted-fg)]">
-                        {new Date(session.scheduled_for).toLocaleString()}
+                        {format(new Date(session.scheduled_for), 'dd MMM yyyy, HH:mm')}
                       </p>
                     </div>
                   </div>
