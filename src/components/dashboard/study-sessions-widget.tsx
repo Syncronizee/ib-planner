@@ -1,30 +1,47 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { StudySession, Subject, Task, ScheduledStudySession } from '@/lib/types'
 import { formatDotoNumber } from '@/lib/utils'
 import { BookOpen, CalendarClock, Clock, Play } from 'lucide-react'
-import { isThisWeek, format } from 'date-fns'
+import { endOfWeek, format, isWithinInterval, startOfWeek } from 'date-fns'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { QuickLogModal } from '@/components/study/quick-log-modal'
 import { StudySessionSetupDialog } from '@/components/study/study-session-setup-dialog'
 import { buildFocusUrlForScheduledSession } from '@/lib/study/start-scheduled-session'
+import { parseDateSafe } from '@/lib/date-utils'
 
 interface StudySessionsWidgetProps {
   sessions: StudySession[]
   subjects: Subject[]
   tasks: Task[]
   scheduledSessions: ScheduledStudySession[]
+  referenceDate: string
 }
 
-export function StudySessionsWidget({ sessions, subjects, tasks, scheduledSessions }: StudySessionsWidgetProps) {
+export function StudySessionsWidget({ sessions, subjects, tasks, scheduledSessions, referenceDate }: StudySessionsWidgetProps) {
   const [startOpen, setStartOpen] = useState(false)
   const [quickLogOpen, setQuickLogOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
+  const referenceDay = parseDateSafe(`${referenceDate}T12:00:00`) ?? new Date()
+  const weekBounds = {
+    start: startOfWeek(referenceDay, { weekStartsOn: 1 }),
+    end: endOfWeek(referenceDay, { weekStartsOn: 1 }),
+  }
 
-  const thisWeekSessions = sessions.filter(s => isThisWeek(new Date(s.started_at), { weekStartsOn: 1 }))
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const thisWeekSessions = sessions.filter((session) =>
+    (() => {
+      const startedAt = parseDateSafe(session.started_at)
+      return startedAt ? isWithinInterval(startedAt, weekBounds) : false
+    })()
+  )
   const totalMinutes = thisWeekSessions.reduce((sum, s) => sum + s.duration_minutes, 0)
   const totalHours = (totalMinutes / 60).toFixed(1)
   const sessionCount = thisWeekSessions.length
@@ -47,8 +64,9 @@ export function StudySessionsWidget({ sessions, subjects, tasks, scheduledSessio
   const upcomingScheduled = useMemo(
     () =>
       scheduledSessions
-        .filter((session) => session.status === 'scheduled')
-        .sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime())
+        .map((session) => ({ session, scheduledAt: parseDateSafe(session.scheduled_for) }))
+        .filter(({ session, scheduledAt }) => session.status === 'scheduled' && Boolean(scheduledAt))
+        .sort((a, b) => a.scheduledAt!.getTime() - b.scheduledAt!.getTime())
         .slice(0, 2),
     [scheduledSessions]
   )
@@ -112,7 +130,7 @@ export function StudySessionsWidget({ sessions, subjects, tasks, scheduledSessio
         {upcomingScheduled.length > 0 && (
           <div className="mt-4 space-y-2">
             <p className="text-xs uppercase tracking-wider text-[var(--muted-fg)]">Upcoming Scheduled</p>
-            {upcomingScheduled.map((session) => {
+            {upcomingScheduled.map(({ session, scheduledAt }) => {
               const subject = subjects.find((item) => item.id === session.subject_id)
               return (
                 <div key={session.id} className="flex items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--muted)]/45 px-3 py-2">
@@ -124,7 +142,7 @@ export function StudySessionsWidget({ sessions, subjects, tasks, scheduledSessio
                         {session.task_suggestion ? ` • ${session.task_suggestion}` : ''}
                       </p>
                       <p className="text-xs text-[var(--muted-fg)]">
-                        {format(new Date(session.scheduled_for), 'dd MMM yyyy, HH:mm')}
+                        {mounted && scheduledAt ? format(scheduledAt, 'dd MMM yyyy, HH:mm') : 'Scheduled'}
                       </p>
                     </div>
                   </div>

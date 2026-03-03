@@ -41,13 +41,19 @@ export async function getDesktopUserId() {
   }
 
   try {
-    const user = window.electronAPI.auth?.getUser
+    const activeUser = window.electronAPI.auth?.getUser
       ? await window.electronAPI.auth.getUser()
-      : window.electronAPI.auth?.getLastUser
-        ? await window.electronAPI.auth.getLastUser()
-        : await window.electronAPI.getLastAuthUser?.()
+      : null
 
-    return user?.id ?? null
+    if (activeUser?.id) {
+      return activeUser.id
+    }
+
+    const cachedUser = window.electronAPI.auth?.getLastUser
+      ? await window.electronAPI.auth.getLastUser()
+      : await window.electronAPI.getLastAuthUser?.()
+
+    return cachedUser?.id ?? null
   } catch {
     return null
   }

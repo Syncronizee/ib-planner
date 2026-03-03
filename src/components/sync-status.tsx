@@ -133,7 +133,7 @@ export function SyncStatus({
               {lastSynced ? formatDistanceToNowStrict(lastSynced, { addSuffix: true }) : 'Never'}
             </span>
           </div>
-          {error ? (
+          {error && isOnline ? (
             <p className="rounded-md border border-rose-500/35 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-200">
               {error}
             </p>

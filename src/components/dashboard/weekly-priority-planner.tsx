@@ -43,6 +43,21 @@ type DraftPriority = {
   reflection_notes: string | null
 }
 
+function formatSaveError(cause: unknown) {
+  if (cause instanceof Error) {
+    return cause.message
+  }
+
+  if (cause && typeof cause === 'object') {
+    const message = 'message' in cause && typeof cause.message === 'string' ? cause.message : null
+    const details = 'details' in cause && typeof cause.details === 'string' ? cause.details : null
+    const hint = 'hint' in cause && typeof cause.hint === 'string' ? cause.hint : null
+    return [message, details, hint].filter(Boolean).join(' ').trim() || 'Unable to save this week plan'
+  }
+
+  return 'Unable to save this week plan'
+}
+
 function buildInitialDraft(priorities: WeeklyPriority[]) {
   const bySlot = new Map(priorities.map((priority) => [priority.priority_number, priority]))
 
@@ -431,7 +446,7 @@ export function WeeklyPriorityPlanner({
       router.push('/dashboard')
       router.refresh()
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Unable to save this week plan')
+      setError(formatSaveError(cause))
     } finally {
       setSaving(false)
     }

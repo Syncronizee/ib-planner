@@ -37,10 +37,11 @@ export class SyncManager extends EventEmitter {
 
   async initialize() {
     const session = this.tokenStore.getSession()
+    const userId = session?.user?.id ?? this.tokenStore.getLastUser()?.id
 
-    if (session?.user?.id) {
-      this.status.lastSyncedAt = this.localDb.getLastSyncAt(session.user.id)
-      this.status.pendingChanges = this.localDb.getPendingChangesCount(session.user.id)
+    if (userId) {
+      this.status.lastSyncedAt = this.localDb.getLastSyncAt(userId)
+      this.status.pendingChanges = this.localDb.getPendingChangesCount(userId)
     }
 
     this.emitStatus('status')
@@ -52,6 +53,10 @@ export class SyncManager extends EventEmitter {
 
   async setOnline(online: boolean) {
     this.status.online = online
+    if (!online) {
+      this.status.syncing = false
+      this.status.error = null
+    }
     this.emitStatus('progress')
 
     if (!online) {
@@ -63,7 +68,10 @@ export class SyncManager extends EventEmitter {
       return
     }
 
-    await this.syncNow()
+    void this.syncNow().catch((error) => {
+      this.status.error = this.getErrorMessage(error)
+      this.emitStatus('error')
+    })
   }
 
   async syncNow() {
@@ -72,14 +80,16 @@ export class SyncManager extends EventEmitter {
       const session = await this.ensureFreshSession(existingSession)
 
       if (!session?.accessToken || !session.user?.id) {
-        this.status.error = 'Missing auth session for sync'
-        this.emitStatus('error')
+        this.status.syncing = false
+        this.status.error = null
+        this.emitStatus('status')
         return this.getStatus()
       }
 
       if (!this.status.online) {
-        this.status.error = 'Offline mode: sync deferred'
-        this.emitStatus('error')
+        this.status.syncing = false
+        this.status.error = null
+        this.emitStatus('status')
         return this.getStatus()
       }
 

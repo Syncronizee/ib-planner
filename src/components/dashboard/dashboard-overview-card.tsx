@@ -1,17 +1,20 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { CalendarClock, Play, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Assessment, ScheduledStudySession, Subject, Task } from '@/lib/types'
 import { StudySessionSetupDialog } from '@/components/study/study-session-setup-dialog'
+import { parseDateSafe } from '@/lib/date-utils'
 
 interface DashboardOverviewCardProps {
   tasks: Task[]
   assessments: Assessment[]
   subjects: Subject[]
   scheduledSessions: ScheduledStudySession[]
+  referenceDate: string
+  referenceNow: string
 }
 
 export function DashboardOverviewCard({
@@ -19,11 +22,18 @@ export function DashboardOverviewCard({
   assessments,
   subjects,
   scheduledSessions,
+  referenceDate,
+  referenceNow,
 }: DashboardOverviewCardProps) {
   const [setupOpen, setSetupOpen] = useState(false)
   const [setupMode, setSetupMode] = useState<'start' | 'schedule'>('start')
-  const now = new Date()
-  const today = format(now, 'yyyy-MM-dd')
+  const [mounted, setMounted] = useState(false)
+  const now = parseDateSafe(referenceNow) ?? new Date()
+  const today = referenceDate
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleOpenTaskDialog = () => {
     window.dispatchEvent(new CustomEvent('open-task-dialog'))
@@ -42,8 +52,11 @@ export function DashboardOverviewCard({
     .sort((a, b) => (a.date || '').localeCompare(b.date || ''))[0] || null
 
   const nextScheduledSession = [...scheduledSessions]
-    .filter((session) => session.status === 'scheduled' && new Date(session.scheduled_for) >= now)
-    .sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime())[0] || null
+    .map((session) => ({ session, scheduledAt: parseDateSafe(session.scheduled_for) }))
+    .filter((entry): entry is { session: ScheduledStudySession; scheduledAt: Date } =>
+      entry.session.status === 'scheduled' && entry.scheduledAt instanceof Date && entry.scheduledAt >= now
+    )
+    .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())[0]?.session || null
 
   return (
     <section className="token-card p-5">
@@ -102,7 +115,16 @@ export function DashboardOverviewCard({
         <div className="token-row px-3 py-2 flex items-center justify-between text-sm">
           <span>Next Study Block</span>
           <span className="token-muted truncate max-w-[68%] text-right">
-            {nextScheduledSession ? format(new Date(nextScheduledSession.scheduled_for), 'MMM d, h:mm a') : 'Nothing scheduled'}
+            {nextScheduledSession
+              ? (() => {
+                  const scheduledAt = parseDateSafe(nextScheduledSession.scheduled_for)
+                  if (!scheduledAt) {
+                    return 'Scheduled'
+                  }
+
+                  return mounted ? format(scheduledAt, 'MMM d, h:mm a') : 'Scheduled'
+                })()
+              : 'Nothing scheduled'}
           </span>
         </div>
       </div>

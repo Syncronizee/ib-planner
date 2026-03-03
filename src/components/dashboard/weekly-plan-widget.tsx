@@ -3,17 +3,19 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { parseISO } from 'date-fns'
 import { CalendarDays, Check, Circle, ClipboardList, Play, SquarePen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { getDesktopUserId, invokeDesktopDb, isElectronRuntime } from '@/lib/electron/offline'
 import type { Subject, WeeklyPriority } from '@/lib/types'
-import { formatPrioritySchedule, getPriorityStatus, getWeekRangeLabel } from '@/lib/weekly-planning'
+import { formatPrioritySchedule, getPriorityStatusForDate, getWeekRangeLabel } from '@/lib/weekly-planning'
 import { PriorityCompletionDialog } from './priority-completion-dialog'
 
 type WeeklyPlanWidgetProps = {
   priorities: WeeklyPriority[]
   subjects: Subject[]
+  referenceDate: string
 }
 
 const SUBJECT_BADGE_STYLES: Record<string, string> = {
@@ -101,11 +103,12 @@ async function updatePriorityRecord(priority: WeeklyPriority, patch: Partial<Wee
   }
 }
 
-export function WeeklyPlanWidget({ priorities, subjects }: WeeklyPlanWidgetProps) {
+export function WeeklyPlanWidget({ priorities, subjects, referenceDate }: WeeklyPlanWidgetProps) {
   const router = useRouter()
   const [localPriorities, setLocalPriorities] = useState(() => [...priorities].sort((a, b) => a.priority_number - b.priority_number))
   const [completionTarget, setCompletionTarget] = useState<WeeklyPriority | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const referenceDay = parseISO(`${referenceDate}T12:00:00`)
 
   const totalCount = localPriorities.length
   const completedCount = localPriorities.filter((priority) => priority.is_completed).length
@@ -217,7 +220,7 @@ export function WeeklyPlanWidget({ priorities, subjects }: WeeklyPlanWidgetProps
       <div className="space-y-3">
         {localPriorities.map((priority) => {
           const subject = priority.subject_id ? subjectById.get(priority.subject_id) : null
-          const status = getPriorityStatus(priority)
+          const status = getPriorityStatusForDate(priority, referenceDay)
           const isToday = status.label === 'Today!' && !priority.is_completed
           const cardClass = priority.is_completed
             ? 'border-green-500/25 bg-green-500/8'

@@ -27,7 +27,6 @@ import {
   isToday,
   addMonths,
   subMonths,
-  parseISO,
 } from 'date-fns'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -45,6 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { parseDateSafe } from '@/lib/date-utils'
 
 interface CalendarPreviewProps {
   tasks: Task[]
@@ -52,12 +52,14 @@ interface CalendarPreviewProps {
   subjects: Subject[]
   scheduledSessions: ScheduledStudySession[]
   schoolEvents: SchoolEvent[]
+  initialDate: string
 }
 
-export function CalendarPreview({ tasks, assessments, subjects, scheduledSessions, schoolEvents }: CalendarPreviewProps) {
+export function CalendarPreview({ tasks, assessments, subjects, scheduledSessions, schoolEvents, initialDate }: CalendarPreviewProps) {
   const router = useRouter()
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const baseDate = parseDateSafe(`${initialDate}T12:00:00`) ?? new Date()
+  const [currentDate, setCurrentDate] = useState(baseDate)
+  const [selectedDate, setSelectedDate] = useState<Date>(baseDate)
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
   const [eventDialogOpen, setEventDialogOpen] = useState(false)
   const [scheduleSubjectId, setScheduleSubjectId] = useState('')
@@ -67,7 +69,7 @@ export function CalendarPreview({ tasks, assessments, subjects, scheduledSession
   const [scheduleDateTime, setScheduleDateTime] = useState('')
   const [savingSchedule, setSavingSchedule] = useState(false)
   const [eventTitle, setEventTitle] = useState('')
-  const [eventDate, setEventDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [eventDate, setEventDate] = useState(initialDate)
   const [eventLocation, setEventLocation] = useState('')
   const [eventDescription, setEventDescription] = useState('')
   const [savingEvent, setSavingEvent] = useState(false)
@@ -141,7 +143,14 @@ export function CalendarPreview({ tasks, assessments, subjects, scheduledSession
   }, [tasks, scheduleSubjectId])
 
   const getEventsForDate = (date: Date) => {
-    return events.filter(e => isSameDay(parseISO(e.date), date) && !e.isCompleted)
+    return events.filter((event) => {
+      const eventDateValue = parseDateSafe(event.date)
+      if (!eventDateValue) {
+        return false
+      }
+
+      return isSameDay(eventDateValue, date) && !event.isCompleted
+    })
   }
 
   const calendarDays = useMemo(() => {

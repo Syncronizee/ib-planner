@@ -24,7 +24,9 @@ export async function getLocalDesktopUser(): Promise<LocalDesktopUser | null> {
   }
 
   const fallbackUserId = await getDesktopUserId()
-  const localUser = await window.electronAPI?.auth?.getLastUser?.().catch(() => null)
+  const localUser = window.electronAPI?.auth?.getLastUser
+    ? await window.electronAPI.auth.getLastUser().catch(() => null)
+    : null
   const userId = localUser?.id ?? fallbackUserId
 
   if (!userId) {
@@ -72,7 +74,11 @@ export async function maybePrimeLocalCache(localRowCount: number): Promise<boole
     ? await window.electronAPI.platform.isOnline()
     : navigator.onLine
 
-  const shouldPrime = Boolean(online) && (localRowCount === 0 || !status?.lastSyncedAt)
+  const token = window.electronAPI?.auth?.getToken
+    ? await window.electronAPI.auth.getToken().catch(() => null)
+    : null
+
+  const shouldPrime = Boolean(online) && Boolean(token) && (localRowCount === 0 || !status?.lastSyncedAt)
   if (!shouldPrime) {
     return false
   }

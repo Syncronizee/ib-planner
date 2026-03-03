@@ -136,6 +136,10 @@ export function formatPrioritySchedule(priority: Pick<WeeklyPriority, 'week_star
 }
 
 export function getPriorityStatus(priority: WeeklyPriority): PriorityStatus {
+  return getPriorityStatusForDate(priority, new Date())
+}
+
+export function getPriorityStatusForDate(priority: WeeklyPriority, referenceDate: Date): PriorityStatus {
   if (priority.is_completed) {
     return { label: 'Completed', tone: 'completed' }
   }
@@ -145,7 +149,7 @@ export function getPriorityStatus(priority: WeeklyPriority): PriorityStatus {
     return { label: 'Unscheduled', tone: 'default' }
   }
 
-  const today = new Date()
+  const today = referenceDate
 
   if (isSameDay(scheduledDate, today)) {
     return { label: 'Today!', tone: 'today' }

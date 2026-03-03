@@ -17,6 +17,10 @@ type UseSyncState = {
 const POLL_INTERVAL_MS = 30_000
 
 function mapSyncStatus(status: SyncStatusPayload): SyncUiStatus {
+  if (!status.online) {
+    return 'idle'
+  }
+
   if (status.syncing) {
     return 'syncing'
   }
@@ -47,7 +51,7 @@ export function useSync() {
       status: mapSyncStatus(payload),
       lastSynced: payload.lastSyncedAt ? new Date(payload.lastSyncedAt) : null,
       pendingChanges: payload.pendingChanges,
-      error: payload.error,
+      error: payload.online ? payload.error : null,
       isOnline: payload.online,
     })
   }, [])
@@ -61,8 +65,21 @@ export function useSync() {
       return
     }
 
-    const payload = await window.electronAPI.sync.status()
-    applySyncPayload(payload)
+    try {
+      const payload = await window.electronAPI.sync.status()
+      applySyncPayload(payload)
+    } catch {
+      const fallbackOnline = window.electronAPI?.platform?.isOnline
+        ? await window.electronAPI.platform.isOnline().catch(() => browserOnline)
+        : browserOnline
+
+      setState((prev) => ({
+        ...prev,
+        status: fallbackOnline ? prev.status : 'idle',
+        error: fallbackOnline ? prev.error : null,
+        isOnline: fallbackOnline,
+      }))
+    }
   }, [applySyncPayload, browserOnline, isElectron])
 
   const refreshPendingCount = useCallback(async () => {
@@ -70,12 +87,30 @@ export function useSync() {
       return
     }
 
-    const count = await window.electronAPI.sync.getPendingCount()
-    setState((prev) => ({ ...prev, pendingChanges: count }))
+    try {
+      const count = await window.electronAPI.sync.getPendingCount()
+      setState((prev) => ({ ...prev, pendingChanges: count }))
+    } catch {
+      // Keep the last known count if the bridge is temporarily unavailable.
+    }
   }, [isElectron])
 
   const sync = useCallback(async () => {
     if (!isElectron || !window.electronAPI?.sync?.start) {
+      return
+    }
+
+    const online = window.electronAPI?.platform?.isOnline
+      ? await window.electronAPI.platform.isOnline().catch(() => browserOnline)
+      : browserOnline
+
+    if (!online) {
+      setState((prev) => ({
+        ...prev,
+        status: 'idle',
+        error: null,
+        isOnline: false,
+      }))
       return
     }
 
@@ -91,7 +126,7 @@ export function useSync() {
         error: error instanceof Error ? error.message : 'Unable to sync right now',
       }))
     }
-  }, [applySyncPayload, isElectron])
+  }, [applySyncPayload, browserOnline, isElectron])
 
   useEffect(() => {
     if (!isElectron || !window.electronAPI?.sync) {

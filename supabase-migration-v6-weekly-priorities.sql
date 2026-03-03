@@ -25,6 +25,60 @@ ALTER TABLE public.weekly_priorities
 ALTER TABLE public.weekly_priorities
   ADD COLUMN IF NOT EXISTS task_category TEXT NOT NULL DEFAULT 'project';
 
+ALTER TABLE public.weekly_priorities
+  ADD COLUMN IF NOT EXISTS subject_id UUID REFERENCES public.subjects(id) ON DELETE SET NULL;
+
+ALTER TABLE public.weekly_priorities
+  ADD COLUMN IF NOT EXISTS scheduled_day INTEGER;
+
+ALTER TABLE public.weekly_priorities
+  ADD COLUMN IF NOT EXISTS scheduled_start_time TIME;
+
+ALTER TABLE public.weekly_priorities
+  ADD COLUMN IF NOT EXISTS scheduled_end_time TIME;
+
+ALTER TABLE public.weekly_priorities
+  ADD COLUMN IF NOT EXISTS is_completed BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE public.weekly_priorities
+  ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+
+ALTER TABLE public.weekly_priorities
+  ADD COLUMN IF NOT EXISTS reflection_rating INTEGER;
+
+ALTER TABLE public.weekly_priorities
+  ADD COLUMN IF NOT EXISTS reflection_notes TEXT;
+
+ALTER TABLE public.weekly_priorities
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+ALTER TABLE public.weekly_priorities
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'weekly_priorities_scheduled_day_check'
+  ) THEN
+    ALTER TABLE public.weekly_priorities
+      ADD CONSTRAINT weekly_priorities_scheduled_day_check
+      CHECK (scheduled_day BETWEEN 0 AND 6 OR scheduled_day IS NULL);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'weekly_priorities_reflection_rating_check'
+  ) THEN
+    ALTER TABLE public.weekly_priorities
+      ADD CONSTRAINT weekly_priorities_reflection_rating_check
+      CHECK (reflection_rating BETWEEN 1 AND 4 OR reflection_rating IS NULL);
+  END IF;
+END
+$$;
+
 ALTER TABLE public.weekly_priorities ENABLE ROW LEVEL SECURITY;
 
 DO $$

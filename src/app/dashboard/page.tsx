@@ -36,6 +36,8 @@ export default async function DashboardPage() {
   }
 
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })
+  const todayIso = format(new Date(), 'yyyy-MM-dd')
+  const nowIso = new Date().toISOString()
 
   const [
     { data: subjects },
@@ -137,6 +139,8 @@ export default async function DashboardPage() {
           assessments={assessments || []}
           subjects={subjects || []}
           scheduledSessions={scheduledSessions || []}
+          referenceDate={todayIso}
+          referenceNow={nowIso}
         />
 
         {/* Stats Overview - Colored Glass Cards with Dotted Numbers */}
@@ -183,6 +187,7 @@ export default async function DashboardPage() {
             <WeeklyPlanWidget
               priorities={weeklyPriorities || []}
               subjects={subjects || []}
+              referenceDate={todayIso}
             />
           </div>
           <div className="glass-card hover-lift overflow-hidden">
@@ -211,6 +216,7 @@ export default async function DashboardPage() {
             subjects={subjects || []}
             tasks={tasks || []}
             scheduledSessions={scheduledSessions || []}
+            referenceDate={todayIso}
           />
         </div>
 
@@ -230,6 +236,7 @@ export default async function DashboardPage() {
             subjects={subjects || []}
             scheduledSessions={scheduledSessions || []}
             schoolEvents={schoolEvents || []}
+            initialDate={todayIso}
           />
         </div>
 

@@ -669,7 +669,9 @@ export function FocusSession({
     }
 
     overlayOpenedRef.current = false
-    void window.electronAPI.app.closeFocusTimer?.().catch(() => {})
+    if (window.electronAPI?.app?.closeFocusTimer) {
+      void window.electronAPI.app.closeFocusTimer().catch(() => {})
+    }
   }, [displaySeconds, goalSeconds, isCountdown, isRunning, overlayObjective, overlaySubject, overlaySubjectColor, phase, progress])
 
   useEffect(() => {

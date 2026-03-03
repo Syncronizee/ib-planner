@@ -15,35 +15,32 @@ export function ElectronDashboardAuthGate() {
     let mounted = true
 
     const checkLocalAuth = async () => {
-      try {
-        const [activeUser, token, lastUser] = await Promise.all([
-          window.electronAPI?.auth?.getUser?.() ?? Promise.resolve(null),
-          window.electronAPI?.auth?.getToken?.() ?? Promise.resolve(null),
-          window.electronAPI?.auth?.getLastUser?.() ?? Promise.resolve(null),
-        ])
-        if (!mounted) {
-          return
-        }
+      const activeUser = window.electronAPI?.auth?.getUser
+        ? await window.electronAPI.auth.getUser().catch(() => null)
+        : null
+      const lastUser = window.electronAPI?.auth?.getLastUser
+        ? await window.electronAPI.auth.getLastUser().catch(() => null)
+        : null
 
-        const canEnterOfflineDashboard = Boolean(activeUser?.id || lastUser?.id)
-        if (!canEnterOfflineDashboard) {
-          setState('redirecting')
-          router.replace('/login')
-          return
-        }
+      if (!mounted) {
+        return
+      }
 
-        // Prefer active session identity, but fall back to last known user so
-        // the app can boot offline after relaunch.
-        setEmail(activeUser?.email ?? lastUser?.email ?? '')
-        setState('ready')
-      } catch {
+      const canEnterOfflineDashboard = Boolean(activeUser?.id || lastUser?.id)
+      if (!canEnterOfflineDashboard) {
         if (!mounted) {
           return
         }
 
         setState('redirecting')
         router.replace('/login')
+        return
       }
+
+      // Prefer active session identity, but fall back to last known user so
+      // the app can boot offline after relaunch.
+      setEmail(activeUser?.email ?? lastUser?.email ?? '')
+      setState('ready')
     }
 
     void checkLocalAuth()

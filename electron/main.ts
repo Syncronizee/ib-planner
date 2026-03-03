@@ -1146,7 +1146,7 @@ function registerIpcHandlers() {
   })
   ipcMain.handle(IPC_CHANNELS.SYNC.GET_PENDING_COUNT, async () => {
     const { syncManager: manager, tokenStore: store } = ensureServices()
-    const userId = store.getSession()?.user?.id
+    const userId = store.getSession()?.user?.id ?? store.getLastUser()?.id
     if (!userId) {
       return 0
     }

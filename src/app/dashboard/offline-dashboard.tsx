@@ -16,8 +16,9 @@ import { StudySessionsWidget } from '@/components/dashboard/study-sessions-widge
 import { SessionLoggerFab } from '@/components/study/session-logger-fab'
 import { GraduationCap, Target, TrendingUp, CheckSquare } from 'lucide-react'
 import { formatDotoNumber } from '@/lib/utils'
-import { getDesktopUserId, invokeDesktopDb } from '@/lib/electron/offline'
+import { invokeDesktopDb } from '@/lib/electron/offline'
 import { onDataChanged } from '@/lib/live-data/events'
+import { getLocalDesktopUser } from '@/lib/electron/local-route'
 import type {
   Assessment,
   ScheduledStudySession,
@@ -156,26 +157,23 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
       setError(null)
     }
 
-    try {
-      if (window.electronAPI?.auth?.getLastUser) {
-        const localUser = await window.electronAPI.auth.getLastUser()
+      try {
+        const localUser = await getLocalDesktopUser()
         if ((!mountedRef || mountedRef.current) && localUser?.email) {
           setResolvedEmail(localUser.email)
         }
-      }
 
-      const userId = await getDesktopUserId()
-      if (!userId) {
-        if (!mountedRef || mountedRef.current) {
-          setError('No local user session found. Sign in once online to seed offline data.')
+        if (!localUser?.id) {
+          if (!mountedRef || mountedRef.current) {
+            setError('No local user session found. Sign in once online to seed offline data.')
+          }
+          return
         }
-        return
-      }
 
-      let snapshot = await loadLocalSnapshot(userId)
-      if (!mountedRef || mountedRef.current) {
-        setSnapshot(snapshot)
-      }
+        let snapshot = await loadLocalSnapshot(localUser.id)
+        if (!mountedRef || mountedRef.current) {
+          setSnapshot(snapshot)
+        }
 
       const isOnline = window.electronAPI?.platform?.isOnline
         ? await window.electronAPI.platform.isOnline()
@@ -196,7 +194,7 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
       // First-run bootstrap: if local cache is empty and online is available, pull once then reload from SQLite.
       if (shouldPrime && window.electronAPI?.sync?.start) {
         await window.electronAPI.sync.start()
-        snapshot = await loadLocalSnapshot(userId)
+        snapshot = await loadLocalSnapshot(localUser.id)
         if (!mountedRef || mountedRef.current) {
           setSnapshot(snapshot)
         }
@@ -262,6 +260,8 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
       : null
   const totalPoints = subjectsWithGrades.reduce((sum, subject) => sum + (subject.current_grade || 0), 0)
   const pendingTasks = tasks.filter((task) => !task.is_completed).length
+  const todayIso = format(new Date(), 'yyyy-MM-dd')
+  const nowIso = new Date().toISOString()
 
   return (
     <div className="min-h-screen app-bg">
@@ -277,12 +277,6 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
           </div>
         ) : null}
 
-        {!loading && error ? (
-          <div className="token-row px-4 py-3 text-sm text-amber-400">
-            {error}
-          </div>
-        ) : null}
-
         {!loading ? (
           <>
             <DashboardOverviewCard
@@ -290,6 +284,8 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
               assessments={assessments}
               subjects={subjects}
               scheduledSessions={scheduledSessions}
+              referenceDate={todayIso}
+              referenceNow={nowIso}
             />
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -331,7 +327,7 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="glass-card hover-lift overflow-hidden">
-                <WeeklyPlanWidget priorities={weeklyPriorities} subjects={subjects} />
+                <WeeklyPlanWidget priorities={weeklyPriorities} subjects={subjects} referenceDate={todayIso} />
               </div>
               <div className="glass-card hover-lift overflow-hidden">
                 <FocusAreas
@@ -356,6 +352,7 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
                 subjects={subjects}
                 tasks={tasks}
                 scheduledSessions={scheduledSessions}
+                referenceDate={todayIso}
               />
             </div>
 
@@ -370,6 +367,7 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
                 subjects={subjects}
                 scheduledSessions={scheduledSessions}
                 schoolEvents={schoolEvents}
+                initialDate={todayIso}
               />
             </div>
 
@@ -384,6 +382,13 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
           </>
         ) : null}
       </main>
+
+      {!loading && error ? (
+        <div className="fixed bottom-4 right-4 z-[70] max-w-sm rounded-2xl border border-amber-500/35 bg-[var(--card)] px-4 py-3 shadow-2xl">
+          <p className="text-sm font-medium text-[var(--card-fg)]">Offline Warning</p>
+          <p className="mt-1 text-xs text-amber-300">{error}</p>
+        </div>
+      ) : null}
     </div>
   )
 }

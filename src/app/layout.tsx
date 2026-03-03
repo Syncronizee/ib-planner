@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
+import { RuntimeErrorNotifier } from '@/components/app/runtime-error-notifier'
 import { ThemeProvider } from '@/components/theme/ThemeProvider'
 import { DEFAULT_THEME, THEME_STORAGE_KEY, themeVars } from '@/components/theme/themes'
 import './globals.css'
@@ -42,6 +43,7 @@ export default function RootLayout({
         <ThemeProvider defaultTheme={DEFAULT_THEME} storageKey={THEME_STORAGE_KEY}>
           {/* Animated Mesh Gradient Background */}
           <div className="mesh-gradient-bg" />
+          <RuntimeErrorNotifier />
           
           {/* Main Content */}
           <div className="relative min-h-screen app-bg">
