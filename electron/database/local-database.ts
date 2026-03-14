@@ -163,7 +163,31 @@ function serializeValue(value: QueryValue): Primitive {
   return value
 }
 
+function normalizeScheduledForValue(value: QueryValue): QueryValue {
+  if (typeof value !== 'string') {
+    return value
+  }
+
+  const repaired = value
+    .trim()
+    .replace(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}):\d{2}$/, '$1')
+  const parsed = new Date(repaired)
+
+  if (Number.isNaN(parsed.getTime())) {
+    return value
+  }
+
+  return parsed.toISOString()
+}
+
 function normalizeRowForTable(table: SyncTable, row: RowRecord): RowRecord {
+  if (table === 'scheduled_study_sessions' && Object.prototype.hasOwnProperty.call(row, 'scheduled_for')) {
+    return {
+      ...row,
+      scheduled_for: normalizeScheduledForValue(row.scheduled_for),
+    }
+  }
+
   if (table !== 'focus_area_progress') {
     return row
   }

@@ -33,6 +33,45 @@ export type PriorityStatus = {
   tone: 'default' | 'today' | 'overdue' | 'completed'
 }
 
+export function normalizePriorityTimeValue(
+  value: string | null | undefined,
+  precision: 'minutes' | 'seconds' = 'minutes'
+) {
+  if (!value) {
+    return null
+  }
+
+  const trimmed = value.trim()
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/)
+  if (!match) {
+    return null
+  }
+
+  const hours = Number.parseInt(match[1] ?? '', 10)
+  const minutes = Number.parseInt(match[2] ?? '', 10)
+  const seconds = Number.parseInt(match[3] ?? '0', 10)
+
+  if (
+    Number.isNaN(hours) ||
+    Number.isNaN(minutes) ||
+    Number.isNaN(seconds) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59 ||
+    seconds < 0 ||
+    seconds > 59
+  ) {
+    return null
+  }
+
+  const hh = String(hours).padStart(2, '0')
+  const mm = String(minutes).padStart(2, '0')
+  const ss = String(seconds).padStart(2, '0')
+
+  return precision === 'seconds' ? `${hh}:${mm}:${ss}` : `${hh}:${mm}`
+}
+
 function parseWeekStart(weekStart: string) {
   return parseISO(`${weekStart}T00:00:00`)
 }
@@ -119,13 +158,16 @@ export function formatPrioritySchedule(priority: Pick<WeeklyPriority, 'week_star
   const weekday = WEEKDAY_OPTIONS.find((option) => option.value === priority.scheduled_day)?.shortLabel
     ?? format(scheduledDate, 'EEE')
 
-  if (!priority.scheduled_start_time || !priority.scheduled_end_time) {
+  const normalizedStartTime = normalizePriorityTimeValue(priority.scheduled_start_time)
+  const normalizedEndTime = normalizePriorityTimeValue(priority.scheduled_end_time)
+
+  if (!normalizedStartTime || !normalizedEndTime) {
     return weekday
   }
 
   const start = parseISO(`${priority.week_start}T00:00:00`)
-  const [startHour, startMinute] = priority.scheduled_start_time.split(':').map((value) => Number.parseInt(value, 10))
-  const [endHour, endMinute] = priority.scheduled_end_time.split(':').map((value) => Number.parseInt(value, 10))
+  const [startHour, startMinute] = normalizedStartTime.split(':').map((value) => Number.parseInt(value, 10))
+  const [endHour, endMinute] = normalizedEndTime.split(':').map((value) => Number.parseInt(value, 10))
 
   const startDate = new Date(start)
   startDate.setHours(startHour || 0, startMinute || 0, 0, 0)
@@ -178,9 +220,13 @@ export function buildPriorityScheduledFor(weekStart: string, scheduledDay: numbe
     return null
   }
 
-  if (!scheduledStartTime) {
-    return format(scheduledDate, "yyyy-MM-dd'T'09:00:00")
-  }
+  const normalizedStartTime = normalizePriorityTimeValue(scheduledStartTime, 'seconds') ?? '09:00:00'
+  const [hours, minutes, seconds] = normalizedStartTime
+    .split(':')
+    .map((value) => Number.parseInt(value, 10))
 
-  return `${format(scheduledDate, 'yyyy-MM-dd')}T${scheduledStartTime}:00`
+  const scheduledAt = new Date(scheduledDate)
+  scheduledAt.setHours(hours || 0, minutes || 0, seconds || 0, 0)
+
+  return scheduledAt.toISOString()
 }

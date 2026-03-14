@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { format, startOfWeek } from 'date-fns'
 import { Header } from '@/components/layout/header'
 import { SubjectsSection } from './subjects-section'
@@ -19,6 +19,8 @@ import { formatDotoNumber } from '@/lib/utils'
 import { invokeDesktopDb } from '@/lib/electron/offline'
 import { onDataChanged } from '@/lib/live-data/events'
 import { getLocalDesktopUser } from '@/lib/electron/local-route'
+import { isEffectivelyOfflineSyncStatus } from '@/lib/sync/offline-like'
+import type { SyncStatus } from '@/lib/db/types'
 import type {
   Assessment,
   ScheduledStudySession,
@@ -62,6 +64,47 @@ const EMPTY_SNAPSHOT: Snapshot = {
   scheduledSessions: [],
   schoolEvents: [],
   totalRows: 0,
+}
+
+function getRowsFingerprint(rows: Array<{ id?: string; updated_at?: string | null; deleted_at?: string | null }>) {
+  if (rows.length === 0) {
+    return '0'
+  }
+
+  const ids: string[] = []
+  let latestUpdatedAt = ''
+  let deletedCount = 0
+
+  for (const row of rows) {
+    if (typeof row.id === 'string' && row.id.length > 0) {
+      ids.push(row.id)
+    }
+    if (typeof row.updated_at === 'string' && row.updated_at > latestUpdatedAt) {
+      latestUpdatedAt = row.updated_at
+    }
+    if (typeof row.deleted_at === 'string' && row.deleted_at.length > 0) {
+      deletedCount += 1
+    }
+  }
+
+  ids.sort()
+  return `${rows.length}:${deletedCount}:${latestUpdatedAt}:${ids.join(',')}`
+}
+
+function getSnapshotFingerprint(snapshot: Snapshot) {
+  return [
+    getRowsFingerprint(snapshot.subjects),
+    getRowsFingerprint(snapshot.tasks),
+    getRowsFingerprint(snapshot.assessments),
+    getRowsFingerprint(snapshot.weaknesses),
+    getRowsFingerprint(snapshot.syllabusTopics),
+    getRowsFingerprint(snapshot.timetableEntries),
+    getRowsFingerprint(snapshot.weeklyPriorities),
+    getRowsFingerprint(snapshot.studySessions),
+    getRowsFingerprint(snapshot.scheduledSessions),
+    getRowsFingerprint(snapshot.schoolEvents),
+    String(snapshot.totalRows),
+  ].join('|')
 }
 
 async function loadLocalSnapshot(userId: string): Promise<Snapshot> {
@@ -149,6 +192,47 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY_SNAPSHOT)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const snapshotFingerprintRef = useRef(getSnapshotFingerprint(EMPTY_SNAPSHOT))
+  const syncLastSeenRef = useRef<string | null>(null)
+  const syncWasInProgressRef = useRef(false)
+
+  const applySnapshot = useCallback((nextSnapshot: Snapshot, mountedRef?: { current: boolean }) => {
+    if (mountedRef && !mountedRef.current) {
+      return
+    }
+
+    const nextFingerprint = getSnapshotFingerprint(nextSnapshot)
+    if (snapshotFingerprintRef.current === nextFingerprint) {
+      return
+    }
+
+    snapshotFingerprintRef.current = nextFingerprint
+    startTransition(() => {
+      setSnapshot(nextSnapshot)
+    })
+  }, [])
+
+  const handleSyncStatus = useCallback((status: SyncStatus) => {
+    const previousLastSyncedAt = syncLastSeenRef.current
+    const previouslySyncing = syncWasInProgressRef.current
+
+    syncLastSeenRef.current = status.lastSyncedAt
+    syncWasInProgressRef.current = status.syncing
+
+    if (status.syncing) {
+      return false
+    }
+
+    if (status.lastSyncedAt && status.lastSyncedAt !== previousLastSyncedAt) {
+      return true
+    }
+
+    if (previouslySyncing && !status.error) {
+      return true
+    }
+
+    return false
+  }, [])
 
   const bootstrap = useCallback(async (mountedRef?: { current: boolean }, options?: { silent?: boolean }) => {
     const silent = options?.silent === true
@@ -157,23 +241,21 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
       setError(null)
     }
 
-      try {
-        const localUser = await getLocalDesktopUser()
-        if ((!mountedRef || mountedRef.current) && localUser?.email) {
-          setResolvedEmail(localUser.email)
-        }
+    try {
+      const localUser = await getLocalDesktopUser()
+      if ((!mountedRef || mountedRef.current) && localUser?.email) {
+        setResolvedEmail(localUser.email)
+      }
 
-        if (!localUser?.id) {
-          if (!mountedRef || mountedRef.current) {
-            setError('No local user session found. Sign in once online to seed offline data.')
-          }
-          return
-        }
-
-        let snapshot = await loadLocalSnapshot(localUser.id)
+      if (!localUser?.id) {
         if (!mountedRef || mountedRef.current) {
-          setSnapshot(snapshot)
+          setError('No local user session found. Sign in once online to seed offline data.')
         }
+        return
+      }
+
+      let snapshot = await loadLocalSnapshot(localUser.id)
+      applySnapshot(snapshot, mountedRef)
 
       const isOnline = window.electronAPI?.platform?.isOnline
         ? await window.electronAPI.platform.isOnline()
@@ -185,8 +267,14 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
         ? await window.electronAPI.sync.status()
         : null
 
+      if (status?.lastSyncedAt) {
+        syncLastSeenRef.current = status.lastSyncedAt
+      }
+      syncWasInProgressRef.current = Boolean(status?.syncing)
+
+      const effectiveOnline = Boolean(isOnline) && !isEffectivelyOfflineSyncStatus(status)
       const shouldPrime =
-        Boolean(isOnline) &&
+        effectiveOnline &&
         hasAuthToken &&
         Boolean(window.electronAPI?.sync?.start) &&
         (snapshot.totalRows === 0 || !status?.lastSyncedAt)
@@ -195,9 +283,7 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
       if (shouldPrime && window.electronAPI?.sync?.start) {
         await window.electronAPI.sync.start()
         snapshot = await loadLocalSnapshot(localUser.id)
-        if (!mountedRef || mountedRef.current) {
-          setSnapshot(snapshot)
-        }
+        applySnapshot(snapshot, mountedRef)
       }
     } catch (cause) {
       if (!mountedRef || mountedRef.current) {
@@ -208,30 +294,79 @@ export function OfflineDashboard({ email }: OfflineDashboardProps) {
         setLoading(false)
       }
     }
-  }, [])
+  }, [applySnapshot])
 
   useEffect(() => {
     const mountedRef = { current: true }
+    let refreshTimer: number | null = null
+    let refreshing = false
+    let queued = false
 
     void bootstrap(mountedRef)
 
-    const refresh = () => {
-      void bootstrap(mountedRef, { silent: true })
+    const runSilentRefresh = async () => {
+      if (refreshing) {
+        queued = true
+        return
+      }
+
+      refreshing = true
+      try {
+        await bootstrap(mountedRef, { silent: true })
+      } finally {
+        refreshing = false
+        if (queued) {
+          queued = false
+          await runSilentRefresh()
+        }
+      }
     }
 
-    window.addEventListener('focus', refresh)
-    window.addEventListener('study-sessions-updated', refresh)
-    window.addEventListener('scheduled-sessions-updated', refresh)
-    const unsubscribe = onDataChanged(refresh)
+    const queueSilentRefresh = () => {
+      if (refreshTimer !== null) {
+        window.clearTimeout(refreshTimer)
+      }
+
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = null
+        void runSilentRefresh()
+      }, 120)
+    }
+
+    const onSyncMaybeRefresh = (status: SyncStatus) => {
+      if (handleSyncStatus(status)) {
+        queueSilentRefresh()
+      }
+    }
+
+    window.addEventListener('focus', queueSilentRefresh)
+    window.addEventListener('study-sessions-updated', queueSilentRefresh)
+    window.addEventListener('scheduled-sessions-updated', queueSilentRefresh)
+    const unsubscribeDataChanged = onDataChanged(queueSilentRefresh)
+    const unsubscribeSyncComplete = window.electronAPI?.sync?.onComplete
+      ? window.electronAPI.sync.onComplete(onSyncMaybeRefresh)
+      : () => {}
+    const unsubscribeSyncStatus = window.electronAPI?.sync?.onStatusChange
+      ? window.electronAPI.sync.onStatusChange(onSyncMaybeRefresh)
+      : () => {}
+    const periodicRefresh = window.setInterval(() => {
+      queueSilentRefresh()
+    }, 45_000)
 
     return () => {
       mountedRef.current = false
-      window.removeEventListener('focus', refresh)
-      window.removeEventListener('study-sessions-updated', refresh)
-      window.removeEventListener('scheduled-sessions-updated', refresh)
-      unsubscribe()
+      if (refreshTimer !== null) {
+        window.clearTimeout(refreshTimer)
+      }
+      window.clearInterval(periodicRefresh)
+      window.removeEventListener('focus', queueSilentRefresh)
+      window.removeEventListener('study-sessions-updated', queueSilentRefresh)
+      window.removeEventListener('scheduled-sessions-updated', queueSilentRefresh)
+      unsubscribeDataChanged()
+      unsubscribeSyncComplete()
+      unsubscribeSyncStatus()
     }
-  }, [bootstrap])
+  }, [bootstrap, handleSyncStatus])
 
   const {
     subjects,

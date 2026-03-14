@@ -22,7 +22,7 @@ export function SyncStatus({
   compact = false,
   showHoverRefresh = true,
 }: SyncStatusProps) {
-  const { isElectron } = usePlatform()
+  const { isElectron, isOnline: platformOnline } = usePlatform()
   const {
     status,
     lastSynced,
@@ -147,7 +147,7 @@ export function SyncStatus({
             size="sm"
             className="h-8 text-[var(--muted-fg)] hover:text-[var(--card-fg)]"
             onClick={() => void sync()}
-            disabled={!isOnline || status === 'syncing'}
+            disabled={!platformOnline || status === 'syncing'}
           >
             <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', status === 'syncing' ? 'animate-spin' : '')} />
             {status === 'error' ? 'Retry' : 'Force Sync'}

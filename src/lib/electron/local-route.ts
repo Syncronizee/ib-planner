@@ -2,6 +2,7 @@
 
 import type { SyncStatus } from '@/lib/db/types'
 import { getDesktopUserId, invokeDesktopDb, isElectronRuntime } from '@/lib/electron/offline'
+import { isEffectivelyOfflineSyncStatus } from '@/lib/sync/offline-like'
 
 type PrimitiveFilter = string | number | boolean | null
 
@@ -78,7 +79,8 @@ export async function maybePrimeLocalCache(localRowCount: number): Promise<boole
     ? await window.electronAPI.auth.getToken().catch(() => null)
     : null
 
-  const shouldPrime = Boolean(online) && Boolean(token) && (localRowCount === 0 || !status?.lastSyncedAt)
+  const effectiveOnline = Boolean(online) && !isEffectivelyOfflineSyncStatus(status)
+  const shouldPrime = effectiveOnline && Boolean(token) && (localRowCount === 0 || !status?.lastSyncedAt)
   if (!shouldPrime) {
     return false
   }

@@ -1,9 +1,10 @@
 import { app, BrowserWindow, dialog, ipcMain, net, screen, session, shell } from 'electron'
 import { fork, type ChildProcess } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { config as loadEnv } from 'dotenv'
-import { autoUpdater } from 'electron-updater'
+import type { AppUpdater } from 'electron-updater'
 import { closeDatabase, initializeDatabase } from './database/connection'
 import { LocalDatabaseService, type RowRecord } from './database/local-database'
 import { SyncManager } from './sync/sync-manager'
@@ -15,6 +16,7 @@ const isDev = !app.isPackaged
 const appHost = '127.0.0.1'
 const appPort = Number(process.env.PORT || '3789')
 const SAFE_EXTERNAL_PROTOCOLS = new Set(['https:', 'http:', 'mailto:'])
+const nodeRequire = createRequire(__filename)
 
 const ALLOWED_DB_METHODS = new Set([
   'getSubjects',
@@ -50,6 +52,8 @@ let manualOfflineMode = false
 let requestBlockerInstalled = false
 let networkWatchTimer: NodeJS.Timeout | null = null
 let updateInitialized = false
+let cachedAutoUpdater: AppUpdater | null | undefined = undefined
+let autoUpdaterLoadError: string | null = null
 
 type AppUpdateState = {
   supported: boolean
@@ -750,22 +754,55 @@ function setUpdateState(patch: Partial<AppUpdateState>) {
   Object.assign(appUpdateState, patch)
 }
 
+function getAutoUpdater() {
+  if (cachedAutoUpdater !== undefined) {
+    return cachedAutoUpdater
+  }
+
+  try {
+    // Lazy-load updater so missing transitive deps do not crash app startup.
+    const updaterModule = nodeRequire('electron-updater') as { autoUpdater: AppUpdater }
+    cachedAutoUpdater = updaterModule.autoUpdater
+    autoUpdaterLoadError = null
+  } catch (error) {
+    cachedAutoUpdater = null
+    autoUpdaterLoadError = error instanceof Error ? error.message : String(error)
+    writeStartupLog('Failed to load electron-updater; updates are disabled for this run.', error)
+  }
+
+  return cachedAutoUpdater
+}
+
 function initializeAutoUpdater() {
   if (updateInitialized || !app.isPackaged) {
     return
   }
 
   updateInitialized = true
+  const updater = getAutoUpdater()
+  if (!updater) {
+    setUpdateState({
+      supported: false,
+      checking: false,
+      updateAvailable: false,
+      downloaded: false,
+      latestVersion: null,
+      message: 'Updates are unavailable in this build.',
+      error: autoUpdaterLoadError,
+    })
+    return
+  }
+
   setUpdateState({
     supported: true,
     message: 'Checking for updates…',
     error: null,
   })
 
-  autoUpdater.autoDownload = true
-  autoUpdater.autoInstallOnAppQuit = true
+  updater.autoDownload = true
+  updater.autoInstallOnAppQuit = true
 
-  autoUpdater.on('checking-for-update', () => {
+  updater.on('checking-for-update', () => {
     setUpdateState({
       checking: true,
       message: 'Checking for updates…',
@@ -773,7 +810,7 @@ function initializeAutoUpdater() {
     })
   })
 
-  autoUpdater.on('update-available', (info) => {
+  updater.on('update-available', (info) => {
     setUpdateState({
       checking: false,
       updateAvailable: true,
@@ -784,7 +821,7 @@ function initializeAutoUpdater() {
     })
   })
 
-  autoUpdater.on('update-not-available', () => {
+  updater.on('update-not-available', () => {
     setUpdateState({
       checking: false,
       updateAvailable: false,
@@ -795,7 +832,7 @@ function initializeAutoUpdater() {
     })
   })
 
-  autoUpdater.on('update-downloaded', async (info) => {
+  updater.on('update-downloaded', async (info) => {
     setUpdateState({
       checking: false,
       updateAvailable: true,
@@ -816,11 +853,11 @@ function initializeAutoUpdater() {
     })
 
     if (result.response === 0) {
-      autoUpdater.quitAndInstall()
+      updater.quitAndInstall()
     }
   })
 
-  autoUpdater.on('error', (error) => {
+  updater.on('error', (error) => {
     setUpdateState({
       checking: false,
       error: error.message,
@@ -829,7 +866,14 @@ function initializeAutoUpdater() {
     writeStartupLog('Auto-updater error', error)
   })
 
-  void autoUpdater.checkForUpdates()
+  void updater.checkForUpdates().catch((error) => {
+    setUpdateState({
+      checking: false,
+      error: error instanceof Error ? error.message : String(error),
+      message: 'Update check failed.',
+    })
+    writeStartupLog('Auto-updater check failed', error)
+  })
 }
 
 async function createMainWindow() {
@@ -997,8 +1041,13 @@ function registerIpcHandlers() {
     }
 
     initializeAutoUpdater()
+    const updater = getAutoUpdater()
+    if (!updater) {
+      return getUpdateState()
+    }
+
     try {
-      await autoUpdater.checkForUpdates()
+      await updater.checkForUpdates()
     } catch (error) {
       setUpdateState({
         checking: false,
@@ -1009,10 +1058,11 @@ function registerIpcHandlers() {
     return getUpdateState()
   })
   ipcMain.handle(IPC_CHANNELS.APP.APPLY_UPDATE, async () => {
-    if (!app.isPackaged || !appUpdateState.downloaded) {
+    const updater = getAutoUpdater()
+    if (!app.isPackaged || !appUpdateState.downloaded || !updater) {
       return false
     }
-    autoUpdater.quitAndInstall()
+    updater.quitAndInstall()
     return true
   })
   ipcMain.handle(IPC_CHANNELS.APP.QUIT, () => app.quit())

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import { RuntimeErrorNotifier } from '@/components/app/runtime-error-notifier'
@@ -44,11 +45,12 @@ export default function RootLayout({
           {/* Animated Mesh Gradient Background */}
           <div className="mesh-gradient-bg" />
           <RuntimeErrorNotifier />
-          
+
           {/* Main Content */}
           <div className="relative min-h-screen app-bg">
             {children}
           </div>
+          <SpeedInsights />
         </ThemeProvider>
       </body>
     </html>

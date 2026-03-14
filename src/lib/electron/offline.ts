@@ -1,5 +1,6 @@
 import type { SyncStatus } from '@/lib/db/types'
 import { emitDataChanged } from '@/lib/live-data/events'
+import { isEffectivelyOfflineSyncStatus } from '@/lib/sync/offline-like'
 
 export function isElectronRuntime() {
   return typeof window !== 'undefined' && Boolean(window.electronAPI?.isElectron)
@@ -32,7 +33,7 @@ export async function isManualOfflineMode() {
     return false
   }
 
-  return status.online === false
+  return isEffectivelyOfflineSyncStatus(status)
 }
 
 export async function getDesktopUserId() {

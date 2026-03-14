@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { SyncStatus as SyncStatusPayload } from '@/lib/db/types'
 import { usePlatform } from '@/hooks/use-platform'
+import { isOfflineLikeSyncError } from '@/lib/sync/offline-like'
 
 export type SyncUiStatus = 'idle' | 'syncing' | 'success' | 'error'
 
@@ -16,8 +17,8 @@ type UseSyncState = {
 
 const POLL_INTERVAL_MS = 30_000
 
-function mapSyncStatus(status: SyncStatusPayload): SyncUiStatus {
-  if (!status.online) {
+function mapSyncStatus(status: SyncStatusPayload, effectiveOnline: boolean): SyncUiStatus {
+  if (!effectiveOnline) {
     return 'idle'
   }
 
@@ -47,12 +48,14 @@ export function useSync() {
   })
 
   const applySyncPayload = useCallback((payload: SyncStatusPayload) => {
+    const effectiveOnline = payload.online && !isOfflineLikeSyncError(payload.error)
+
     setState({
-      status: mapSyncStatus(payload),
+      status: mapSyncStatus(payload, effectiveOnline),
       lastSynced: payload.lastSyncedAt ? new Date(payload.lastSyncedAt) : null,
       pendingChanges: payload.pendingChanges,
-      error: payload.online ? payload.error : null,
-      isOnline: payload.online,
+      error: effectiveOnline ? payload.error : null,
+      isOnline: effectiveOnline,
     })
   }, [])
 

@@ -40,7 +40,6 @@ import {
   isToday,
   addMonths,
   subMonths,
-  parseISO,
   isPast,
 } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
@@ -53,6 +52,7 @@ import {
 } from '@/components/ui/dialog'
 import { getTaskBankSuggestions } from '@/lib/study-task-bank'
 import { buildFocusUrlForScheduledSession } from '@/lib/study/start-scheduled-session'
+import { parseDateSafe } from '@/lib/date-utils'
 
 interface CalendarViewProps {
   initialTasks: Task[]
@@ -194,7 +194,10 @@ export function CalendarView({
 
   // Get events for a specific date
   const getEventsForDate = (date: Date) => {
-    return filteredEvents.filter(event => isSameDay(parseISO(event.date), date))
+    return filteredEvents.filter((event) => {
+      const eventDate = parseDateSafe(event.date)
+      return eventDate ? isSameDay(eventDate, date) : false
+    })
   }
 
   // Generate calendar days
@@ -354,8 +357,19 @@ export function CalendarView({
 
   // Upcoming events for list view
   const upcomingEvents = filteredEvents
-    .filter(e => !isPast(parseISO(e.date)) || isToday(parseISO(e.date)) || !e.isCompleted)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .filter((event) => {
+      const eventDate = parseDateSafe(event.date)
+      if (!eventDate) {
+        return !event.isCompleted
+      }
+
+      return !isPast(eventDate) || isToday(eventDate) || !event.isCompleted
+    })
+    .sort((a, b) => {
+      const aTime = parseDateSafe(a.date)?.getTime() ?? Number.MAX_SAFE_INTEGER
+      const bTime = parseDateSafe(b.date)?.getTime() ?? Number.MAX_SAFE_INTEGER
+      return aTime - bTime
+    })
 
   // Group upcoming events by date for list view
   const groupedUpcoming = useMemo(() => {
@@ -490,7 +504,10 @@ export function CalendarView({
                   const incompleteEvents = dayEvents.filter(e => !e.isCompleted)
                   const isCurrentMonth = isSameMonth(day, currentDate)
                   const isSelected = selectedDate && isSameDay(day, selectedDate)
-                  const hasOverdue = incompleteEvents.some(e => isPast(parseISO(e.date)) && !isToday(day))
+                  const hasOverdue = incompleteEvents.some((event) => {
+                    const eventDate = parseDateSafe(event.date)
+                    return eventDate ? isPast(eventDate) && !isToday(day) : false
+                  })
 
                   return (
                     <button
@@ -625,16 +642,28 @@ export function CalendarView({
               <div className="space-y-6">
                 {groupedUpcoming.map(([dateStr, dateEvents]) => (
                   <div key={dateStr}>
-                    <h3 className={`text-sm font-medium mb-2 flex items-center gap-2 ${
-                      isToday(parseISO(dateStr)) ? 'text-primary' : 
-                      isPast(parseISO(dateStr)) ? 'text-red-600' : 'text-muted-foreground'
-                    }`}>
-                      {isPast(parseISO(dateStr)) && !isToday(parseISO(dateStr)) && (
-                        <AlertCircle className="h-4 w-4" />
-                      )}
-                      {isToday(parseISO(dateStr)) && <Clock className="h-4 w-4" />}
-                      {isToday(parseISO(dateStr)) ? 'Today' : format(parseISO(dateStr), 'EEEE, MMMM d')}
-                    </h3>
+                    {(() => {
+                      const parsedDate = parseDateSafe(dateStr)
+                      const isDateToday = parsedDate ? isToday(parsedDate) : false
+                      const isDatePast = parsedDate ? isPast(parsedDate) : false
+
+                      return (
+                        <h3 className={`text-sm font-medium mb-2 flex items-center gap-2 ${
+                          isDateToday ? 'text-primary' :
+                          isDatePast ? 'text-red-600' : 'text-muted-foreground'
+                        }`}>
+                          {isDatePast && !isDateToday && (
+                            <AlertCircle className="h-4 w-4" />
+                          )}
+                          {isDateToday && <Clock className="h-4 w-4" />}
+                          {isDateToday
+                            ? 'Today'
+                            : parsedDate
+                              ? format(parsedDate, 'EEEE, MMMM d')
+                              : dateStr}
+                        </h3>
+                      )
+                    })()}
                     <div className="space-y-2 pl-4 border-l-2">
                       {dateEvents.map(event => (
                         <EventCard

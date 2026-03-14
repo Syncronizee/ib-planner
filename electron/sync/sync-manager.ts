@@ -15,6 +15,32 @@ type SyncRow = RowRecord & {
   updated_at?: string | null
 }
 
+function normalizeScheduledForValue(value: unknown) {
+  if (typeof value !== 'string') {
+    return value
+  }
+
+  const repaired = value
+    .trim()
+    .replace(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}):\d{2}$/, '$1')
+  const parsed = new Date(repaired)
+
+  if (Number.isNaN(parsed.getTime())) {
+    return value
+  }
+
+  return parsed.toISOString()
+}
+
+function normalizeForeignKeySubjectValue(value: unknown) {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
 export class SyncManager extends EventEmitter {
   private readonly queue = new SyncQueue()
   private readonly remote = new RemoteSyncDatabase()
@@ -158,9 +184,10 @@ export class SyncManager extends EventEmitter {
 
       try {
         for (const row of dirtyRows) {
-          const remoteId = row.remote_id ?? row.id
+          const normalizedRow = this.prepareRowForPush(table, row, userId)
+          const remoteId = normalizedRow.remote_id ?? normalizedRow.id
 
-          if (row.deleted_at) {
+          if (normalizedRow.deleted_at) {
             try {
               await this.remote.delete(table, remoteId, userId, accessToken)
             } catch (error) {
@@ -171,17 +198,17 @@ export class SyncManager extends EventEmitter {
               }
             }
 
-            this.localDb.markRecordSynced(table, row.id, remoteId)
+            this.localDb.markRecordSynced(table, normalizedRow.id, remoteId)
             continue
           }
 
           const remoteRow = await this.remote.upsert(table, {
-            ...row,
+            ...normalizedRow,
             id: remoteId,
           }, accessToken)
 
           const persistedRemoteId = typeof remoteRow.id === 'string' ? remoteRow.id : remoteId
-          this.localDb.markRecordSynced(table, row.id, persistedRemoteId)
+          this.localDb.markRecordSynced(table, normalizedRow.id, persistedRemoteId)
         }
       } catch (error) {
         if (this.isMissingRemoteTableError(error)) {
@@ -315,6 +342,77 @@ export class SyncManager extends EventEmitter {
     }
 
     return 'Unknown sync failure'
+  }
+
+  private prepareRowForPush(table: SyncTable, row: SyncRow, userId: string) {
+    const patch: RowRecord = {}
+
+    if (table === 'scheduled_study_sessions' && typeof row.scheduled_for === 'string') {
+      const normalizedScheduledFor = normalizeScheduledForValue(row.scheduled_for)
+      if (normalizedScheduledFor !== row.scheduled_for && typeof normalizedScheduledFor === 'string') {
+        patch.scheduled_for = normalizedScheduledFor
+      }
+    }
+
+    if (table !== 'subjects' && Object.prototype.hasOwnProperty.call(row, 'subject_id')) {
+      const currentSubjectId = normalizeForeignKeySubjectValue(row.subject_id)
+      let nextSubjectId: string | null = currentSubjectId
+
+      if (currentSubjectId) {
+        const linkedSubject = this.localDb.getById<SyncRow>('subjects', currentSubjectId, userId, true)
+        const linkedSubjectDeleted = typeof linkedSubject?.deleted_at === 'string' && linkedSubject.deleted_at.length > 0
+
+        if (!linkedSubject || linkedSubjectDeleted) {
+          nextSubjectId = null
+        } else {
+          const remoteSubjectId =
+            typeof linkedSubject.remote_id === 'string' && linkedSubject.remote_id.length > 0
+              ? linkedSubject.remote_id
+              : linkedSubject.id
+
+          nextSubjectId = typeof remoteSubjectId === 'string' && remoteSubjectId.length > 0
+            ? remoteSubjectId
+            : null
+        }
+      }
+
+      if (nextSubjectId !== currentSubjectId) {
+        patch.subject_id = nextSubjectId
+      }
+    }
+
+    if (table === 'weekly_plans' && Object.prototype.hasOwnProperty.call(row, 'weakest_subject_id')) {
+      const currentWeakestSubjectId = normalizeForeignKeySubjectValue(row.weakest_subject_id)
+      let nextWeakestSubjectId: string | null = currentWeakestSubjectId
+
+      if (currentWeakestSubjectId) {
+        const linkedSubject = this.localDb.getById<SyncRow>('subjects', currentWeakestSubjectId, userId, true)
+        const linkedSubjectDeleted = typeof linkedSubject?.deleted_at === 'string' && linkedSubject.deleted_at.length > 0
+
+        if (!linkedSubject || linkedSubjectDeleted) {
+          nextWeakestSubjectId = null
+        } else {
+          const remoteSubjectId =
+            typeof linkedSubject.remote_id === 'string' && linkedSubject.remote_id.length > 0
+              ? linkedSubject.remote_id
+              : linkedSubject.id
+
+          nextWeakestSubjectId = typeof remoteSubjectId === 'string' && remoteSubjectId.length > 0
+            ? remoteSubjectId
+            : null
+        }
+      }
+
+      if (nextWeakestSubjectId !== currentWeakestSubjectId) {
+        patch.weakest_subject_id = nextWeakestSubjectId
+      }
+    }
+
+    if (Object.keys(patch).length === 0) {
+      return row
+    }
+
+    return this.localDb.updateRecord<SyncRow>(table, row.id, userId, patch)
   }
 
   private isMissingRemoteTableError(error: unknown) {

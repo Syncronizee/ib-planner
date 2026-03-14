@@ -72,6 +72,23 @@ function sanitizeRow(row: RemoteRecord) {
   return payload
 }
 
+function normalizeScheduledForValue(value: unknown) {
+  if (typeof value !== 'string') {
+    return value
+  }
+
+  const repaired = value
+    .trim()
+    .replace(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}):\d{2}$/, '$1')
+  const parsed = new Date(repaired)
+
+  if (Number.isNaN(parsed.getTime())) {
+    return value
+  }
+
+  return parsed.toISOString()
+}
+
 function singularize(name: string) {
   if (name.endsWith('ies')) {
     return `${name.slice(0, -3)}y`
@@ -116,6 +133,18 @@ function isConstraintViolation(error: unknown, constraintName: string) {
   }
 
   return message.includes(constraintName)
+}
+
+function isSubjectForeignKeyViolation(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const candidate = error as Record<string, unknown>
+  const code = typeof candidate.code === 'string' ? candidate.code : ''
+  const message = typeof candidate.message === 'string' ? candidate.message : ''
+
+  return code === '23503' && message.includes('subject_id_fkey')
 }
 
 function getFocusAreaTypeFallbacks(value: unknown) {
@@ -220,6 +249,9 @@ export class RemoteSyncDatabase {
 
     return this.withTableResolution(table, async (remoteTable) => {
       const payload = sanitizeRow(row)
+      if (table === 'scheduled_study_sessions' && Object.prototype.hasOwnProperty.call(payload, 'scheduled_for')) {
+        payload.scheduled_for = normalizeScheduledForValue(payload.scheduled_for)
+      }
       const removedColumns = new Set<string>()
       const focusAreaTypeFallbacks = Object.prototype.hasOwnProperty.call(payload, 'focus_area_type')
         ? getFocusAreaTypeFallbacks(payload.focus_area_type)
@@ -255,6 +287,27 @@ export class RemoteSyncDatabase {
           payload.focus_area_type = focusAreaTypeFallbacks[focusAreaTypeFallbackIndex]
           focusAreaTypeFallbackIndex += 1
           continue
+        }
+
+        if (isSubjectForeignKeyViolation(error)) {
+          let patched = false
+
+          if (Object.prototype.hasOwnProperty.call(payload, 'subject_id') && payload.subject_id !== null) {
+            payload.subject_id = null
+            patched = true
+          }
+
+          if (
+            Object.prototype.hasOwnProperty.call(payload, 'weakest_subject_id') &&
+            payload.weakest_subject_id !== null
+          ) {
+            payload.weakest_subject_id = null
+            patched = true
+          }
+
+          if (patched) {
+            continue
+          }
         }
 
         throw error
